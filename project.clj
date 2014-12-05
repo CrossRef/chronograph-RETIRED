@@ -14,7 +14,8 @@
                   [korma "0.3.0"]
                   [mysql-java "5.1.21"]
                   [compojure "1.3.1"]
-                  [liberator "0.12.2"]]
+                  [liberator "0.12.2"]
+                  [ring "1.3.2"]]
   :plugins [[lein-ring "0.8.13"]]
   :ring {:handler doi-time.handlers/app}
   :main ^:skip-aot doi-time.main

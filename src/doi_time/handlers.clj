@@ -3,6 +3,7 @@
             [doi-time.db :as db])
   (:require [compojure.core :refer [context defroutes GET ANY]]
             [compojure.handler :as handler])
+  (:require [ring.util.response :refer [redirect]])
   (:require [liberator.core :refer [defresource resource]]
             [liberator.representation :refer [ring-response]]))
 
@@ -30,13 +31,10 @@
   :respond-with-entity? true
   :multiple-resolutions? false
   :handle-ok (fn [ctx] 
-               
-                (let [;dois-input (-> ctx :request :body slurp)
-                      dois-input (-> ctx :request :params  :upload :tempfile slurp)
+                (let [dois-input (-> ctx :request :params  :upload :tempfile slurp)
                       dois (.split dois-input "\r?\n" )
                       results (map (fn [doi]
                                         (when doi (export-info (d/get-doi-info doi)))) dois)]
-                  
                   (remove nil? results))))
 
 (defresource article
@@ -50,7 +48,11 @@
   :handle-ok (fn [ctx]
               (export-info (::info ctx))))
 
+(defn home [] (prn "TEST")
+                   )
+
 (defroutes app-routes
+  (GET "/" [] (redirect "https://github.com/CrossRef/doi-time/blob/master/README.md"))
     (context "/articles" []
       (ANY "/" [] (articles))
           (context ["/:doi-prefix/:doi-suffix" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (article doi-prefix doi-suffix))))

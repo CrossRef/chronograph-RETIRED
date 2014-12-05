@@ -1,8 +1,12 @@
 # DOI Time!
 
-Chronological information about DOIs.
+Chronological information about DOIs. Information is gathered about DOIs with updates (new or update deposits) since this service started running, 5 December 2014. If a DOI is not found, it may be because it wasn't published / updated since this date.
 
-Fields:
+This can be queried by individual DOI or witha bulk query.
+
+Support jwass@crossref.org
+
+## Fields:
 
 NB some fields are the 'first X', but are historical, only since this service started running. Marked with an asterisk.
 
