@@ -34,8 +34,10 @@
                 (let [dois-input (-> ctx :request :params  :upload :tempfile slurp)
                       dois (.split dois-input "\r?\n" )
                       results (map (fn [doi]
-                                        (when doi (export-info (d/get-doi-info doi)))) dois)]
-                  (remove nil? results))))
+                                        (when doi (export-info (d/get-doi-info doi)))) dois)
+                      results (remove nil? results)    
+                      results (if (empty? results) nil results)]
+                  results)))
 
 (defresource article
   [doi-prefix doi-suffix]
@@ -47,9 +49,6 @@
               [info {::info info}]))
   :handle-ok (fn [ctx]
               (export-info (::info ctx))))
-
-(defn home [] (prn "TEST")
-                   )
 
 (defroutes app-routes
   (GET "/" [] (redirect "https://github.com/CrossRef/doi-time/blob/master/README.md"))

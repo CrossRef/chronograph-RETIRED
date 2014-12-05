@@ -31,6 +31,8 @@ Coming soon
 
 ### Using curl for a single DOI
 
+To save to a file, add `> myfile.txt` to the end of the command.
+
 HTML
 
      curl http://148.251.184.90:3000/articles/10.1007/s00003-014-0877-9
