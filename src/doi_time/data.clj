@@ -54,7 +54,7 @@
         (let [response (client/get page-query {:as :json})
               items (-> response :body :message :items)]
           (doseq [item items]
-            (let [doi (:DOI item)
+            (let [the-doi (:DOI item)
                   ; list of date parts in CrossRef date format
                   issuedInput (-> item :issued :date-parts first)
                   ; CrossRef date native format
@@ -69,7 +69,7 @@
                   depositedInput (-> item :deposited :date-parts first)
                   deposited (apply crdate/crossref-date depositedInput)
                   depositedDate (coerce/to-sql-date (crdate/as-date deposited))]
-              (insert-doi d/doi issuedDate issuedString depositedDate)))))))
+              (insert-doi the-doi issuedDate issuedString depositedDate)))))))
 
 (defn get-resolutions
   "Get the first and last redirects or nil if it doesn't exist."
