@@ -23,36 +23,36 @@ Coming soon
 
 ### From a browser for a single DOI
 
-    http://doitime.labs.crossref.org/articles/10.1007/s00003-014-0877-9
+    http://148.251.184.90:3000/articles/10.1007/s00003-014-0877-9
 
 ### Using curl for a single DOI
 
 HTML
 
-     curl http://localhost:3001/articles/10.1007/s00003-014-0877-9
+     curl http://148.251.184.90:3000/articles/10.1007/s00003-014-0877-9
 
 CSV
 
-    curl -H "Accept: text/csv" http://localhost:3001/articles/10.1007/s00003-014-0877-9
+    curl -H "Accept: text/csv" http://148.251.184.90:3000/articles/10.1007/s00003-014-0877-9
 
 JSON
 
-    curl -H "Accept: application/json" http://localhost:3001/articles/10.1007/s00003-014-0877-9
+    curl -H "Accept: application/json" http://148.251.184.90:3000/articles/10.1007/s00003-014-0877-9
 
 
 ### Using curl for bulk DOI query
 
 HTML
 
-    curl -H "Accept: text/html" --form upload=@demo-request.txt  http://localhost:3001/articles/
+    curl -H "Accept: text/html" --form upload=@demo-request.txt  http://148.251.184.90:3000/articles/
 
 CSV
 
-    curl -H "Accept: text/csv" --form upload=@demo-request.txt  http://localhost:3001/articles/
+    curl -H "Accept: text/csv" --form upload=@demo-request.txt  http://148.251.184.90:3000/articles/
 
 JSON
 
-    curl -H "Accept: application/json" --form upload=@demo-request.txt  http://localhost:3001/articles/
+    curl -H "Accept: application/json" --form upload=@demo-request.txt  http://148.251.184.90:3000/articles/
 
 ## License
 
