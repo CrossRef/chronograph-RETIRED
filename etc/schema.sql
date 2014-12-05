@@ -1,0 +1,17 @@
+CREATE TABLE doi (
+    doi VARCHAR(700) PRIMARY KEY,
+    -- issued date lossily coerced into a datetime
+    issuedDate DATETIME NOT NULL,
+    -- issued date represented as CrossRef date
+    issuedString VARCHAR(10) NOT NULL,
+    redepositedDate DATETIME NULL,
+    firstDepositedDate DATETIME NOT NULL,
+    resolved DATETIME NULL,
+    firstResolution VARCHAR(1024) NULL,
+    ultimateResolution VARCHAR(1024) NULL
+);
+
+CREATE TABLE state (
+    name VARCHAR(1024) NOT NULL,
+    theDate DATETIME NOT NULL
+);

@@ -1,0 +1,8 @@
+{:port 3000
+ :database-name "doitime"
+ :database-username ""
+ :database-password ""
+ :database-host "localhost"
+ :database-port 3306
+ :start-date [2014 12 5] ; year month day
+ }
