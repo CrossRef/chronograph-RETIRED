@@ -5,10 +5,11 @@ CREATE TABLE doi (
     -- issued date represented as CrossRef date
     issuedString VARCHAR(10) NULL,
     redepositedDate DATETIME NULL,
-    firstDepositedDate DATETIME NOT NULL,
+    firstDepositedDate DATETIME NULL,
     resolved DATETIME NULL,
     firstResolution VARCHAR(1024) NULL,
-    ultimateResolution VARCHAR(1024) NULL
+    ultimateResolution VARCHAR(1024) NULL,
+    firstResolutionLog DATETIME
 );
 
 CREATE TABLE state (
