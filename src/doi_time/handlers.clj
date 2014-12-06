@@ -31,8 +31,15 @@
   :exists? true
   :respond-with-entity? true
   :multiple-resolutions? false
-  :handle-ok (fn [ctx] 
-                (let [dois-input (-> ctx :request :params  :upload :tempfile slurp)
+  :handle-ok (fn [ctx]
+                ; So many different ways of getting the upload!
+                (let [dois-input-body (when-let [body (-> ctx :request :body)] (slurp body))
+                      dois-input-file (when-let [body (-> ctx :request :params :upload :tempfile)] (slurp body))
+                      dois-input-upload (when-let [body (-> ctx :request :params :upload)] body)
+                      dois-input (or 
+                                   (and (not= "" dois-input-body) dois-input-body)
+                                   (and (not= "" dois-input-file) dois-input-file)
+                                   (and (not= "" dois-input-upload) dois-input-upload))
                       dois (.split dois-input "\r?\n" )
                       results (map (fn [doi]
                                         (when doi (export-info (d/get-doi-info doi)))) dois)

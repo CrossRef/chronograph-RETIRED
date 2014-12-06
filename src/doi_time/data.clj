@@ -41,7 +41,9 @@
                            :redepositedDate depositedDate }))))))
 
 (defn get-dois-updated-since [date]
-  (let [base-q {:filter (str "has-update-policy:true,from-update-date:" (unparse yyyy-mm-dd date))}
+  (let [base-q (if date 
+          {:filter (str "from-update-date:" (unparse yyyy-mm-dd date))}
+          {})
         results (client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json})
         num-results (-> results :body :message :total-results)
         ; Extra page just in case.
@@ -56,12 +58,16 @@
           (doseq [item items]
             (let [the-doi (:DOI item)
                   ; list of date parts in CrossRef date format
-                  issuedInput (-> item :issued :date-parts first)
+                  issued-input (-> item :issued :date-parts first)
                   ; CrossRef date native format
-                  issued (apply crdate/crossref-date issuedInput)
+                  ; Issued may be missing, e.g. 10.1109/lcomm.2012.030912.11193
+                  ; Or may be a single null in a vector.
+                  issued-input-ok (and (not-empty issued-input) (every? number? issued-input))
+                  
+                  issued (when issued-input-ok (apply crdate/crossref-date issued-input))
                   ; Nominal, but potentially lossily converted format.
                   ; Coerce will work with the the DateTimeProtocol
-                  issuedDate (coerce/to-sql-date (crdate/as-date issued))
+                  issuedDate (when issued-input-ok (coerce/to-sql-date (crdate/as-date issued)))
                   ; Non-lossy, but string representation of date.
                   issuedString (str issued)
                   
@@ -83,13 +89,17 @@
         (when ok
           [first-redirect last-redirect])))
   
-(defn run-doi-extraction []
+(defn run-doi-extraction-new-updates []
   (let [last-run-date (get-last-run-date)
         now (t/now)]
     (get-dois-updated-since last-run-date)    
     (set-last-run-date! now)))
 
+(defn run-doi-extraction-ever []
+    (get-dois-updated-since nil))
+
 (defn run-doi-resolution []
+  ; TODO ONLY SINCE!!
   (let [dois (k/select d/doi (k/where (= nil :resolved)))]
     (prn (count dois) "to resolve")
     (doseq [doi-info dois]

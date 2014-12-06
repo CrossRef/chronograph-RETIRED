@@ -7,9 +7,14 @@
 (defn -main
   [& args]
   
-  (when (= (first args) "extract")
-      (prn "DOI Extraction")
-      (d/run-doi-extraction))
+  (when (= (first args) "import-ever")
+      (prn "DOI import everything ever")
+      (d/run-doi-extraction-ever))
+  
+  (when (= (first args) "new-updates")
+      (prn "DOI import new updates")
+      (d/run-doi-extraction-new-updates))
+  
   (when (= (first args) "resolve")
       (prn "DOI Resolution")
       (d/run-doi-resolution))
