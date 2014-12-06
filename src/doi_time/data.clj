@@ -25,20 +25,10 @@
   (k/delete d/state (k/where (= :name "last-run")))
   (k/insert d/state (k/values {:name "last-run" :theDate (coerce/to-sql-date date)})))
 
+
 (defn insert-doi [the-doi issuedDate issuedString depositedDate]
-  (try
-    (k/insert d/doi (k/values {:doi the-doi
-                             :issuedDate issuedDate
-                             :issuedString issuedString 
-                             ; not :redepositedDate
-                             :firstDepositedDate depositedDate}))
-    (catch com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException _
-      (do (k/update d/doi
-                (k/where (= :doi the-doi))
-                (k/set-fields {:issuedDate issuedDate
-                           :issuedString issuedString
-                           ; not :firstDepositedDate
-                           :redepositedDate depositedDate }))))))
+  (k/exec-raw ["insert into doi (doi, issuedDate, issuedString, firstDepositedDate) values (?, ?, ?, ?) on duplicate key update issuedDate = ?, issuedString = ?, redepositedDate = ?"
+               [the-doi issuedDate issuedString depositedDate issuedDate issuedString depositedDate]]))
 
 (defn get-dois-updated-since [date]
   (let [base-q (if date 
@@ -53,8 +43,10 @@
                                                                                   :offset (* api-page-size %)))) (range num-pages))]
     
       (doseq [page-query page-queries]
+        (prn "Fetching" page-query)
         (let [response (client/get page-query {:as :json})
               items (-> response :body :message :items)]
+          (prn "Fetched")
           (doseq [item items]
             (let [the-doi (:DOI item)
                   ; list of date parts in CrossRef date format
@@ -75,7 +67,8 @@
                   depositedInput (-> item :deposited :date-parts first)
                   deposited (apply crdate/crossref-date depositedInput)
                   depositedDate (coerce/to-sql-date (crdate/as-date deposited))]
-              (insert-doi the-doi issuedDate issuedString depositedDate)))))))
+              (insert-doi the-doi issuedDate issuedString depositedDate))))
+        (prn "Next"))))
 
 (defn get-resolutions
   "Get the first and last redirects or nil if it doesn't exist."
@@ -119,17 +112,6 @@
   info))
 
 (defn set-first-resolution-log [the-doi date]
-  (try
-    (k/insert d/doi (k/values {:doi the-doi :firstResolutionLog (coerce/to-sql-date date)}))
-    
-    (catch com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException _
-      (do
-        (k/update d/doi (k/where (= :doi the-doi))
-                        (k/set-fields {:firstResolutionLog (coerce/to-sql-date date)}) )
-        
-        )
-      
-      )
-    )
-  
-  )
+  (k/exec-raw ["insert into doi (doi, firstResolutionLog) values (?, ?) on duplicate key update firstResolutionLog = ?"
+               [the-doi (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
+

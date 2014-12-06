@@ -3,8 +3,9 @@
   (:require [korma.db :as kdb])
   (:require [korma.core :as k])
   (:require [korma.db :refer [mysql with-db defdb]])
-  (:require [clj-time.coerce :as coerce]))
-
+  (:require [clj-time.coerce :as coerce])
+  (:require [korma.sql.engine :as korma-engine]
+            [korma.core :refer :all]))
 
 (defdb db
   (mysql {:user (:database-username config)
