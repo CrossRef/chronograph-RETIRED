@@ -13,6 +13,7 @@
   (when info 
       {
         "doi" (:doi info)
+        "firstResolutionLog" (:firstResolutionLog info)
         "firstResolution" (:firstResolution info)
         "ultimateResolution" (:ultimateResolution info)
         "issuedDate" (str (:issuedDate info))

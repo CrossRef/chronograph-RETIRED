@@ -107,3 +107,19 @@
 (defn get-doi-info [the-doi]
   (let [info (first (k/select d/doi (k/where (= :doi the-doi))))]
   info))
+
+(defn set-first-resolution-log [the-doi date]
+  (try
+    (k/insert d/doi (k/values {:doi the-doi :firstResolutionLog (coerce/to-sql-date date)}))
+    
+    (catch com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException _
+      (do
+        (k/update d/doi (k/where (= :doi the-doi))
+                        (k/set-fields {:firstResolutionLog (coerce/to-sql-date date)}) )
+        
+        )
+      
+      )
+    )
+  
+  )

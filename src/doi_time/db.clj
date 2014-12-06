@@ -31,7 +31,8 @@
     :firstDepositedDate
     :resolved
     :firstResolution
-    :ultimateResolution)
+    :ultimateResolution
+    :firstResolutionLog)
   
   (k/transform
     (fn [input]
