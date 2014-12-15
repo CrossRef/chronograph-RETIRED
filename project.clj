@@ -15,7 +15,9 @@
                   [mysql-java "5.1.21"]
                   [compojure "1.3.1"]
                   [liberator "0.12.2"]
-                  [ring "1.3.2"]]
+                  [ring "1.3.2"]
+                  [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
+                  [robert/bruce "0.7.1"]]
   :plugins [[lein-ring "0.8.13"]]
   :ring {:handler doi-time.handlers/app}
   :main ^:skip-aot doi-time.main

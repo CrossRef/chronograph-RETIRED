@@ -47,22 +47,37 @@
                       results (if (empty? results) nil results)]
                   results)))
 
-(defresource article
+(defresource doi-facts
   [doi-prefix doi-suffix]
   :allowed-methods [:get]
   :available-media-types ["text/html" "application/json" "text/csv"]
   :exists? (fn [ctx]
             (let [doi (str doi-prefix "/" doi-suffix)
-                  info (d/get-doi-info doi)]
+                  info (d/get-doi-facts doi)]
               [info {::info info}]))
   :handle-ok (fn [ctx]
-              (export-info (::info ctx))))
+              (export-info (::info ctx))
+              (::info ctx)))
+
+(defresource doi-events
+  [doi-prefix doi-suffix]
+  :allowed-methods [:get]
+  :available-media-types ["text/html" "application/json" "text/csv"]
+  :exists? (fn [ctx]
+            (let [doi (str doi-prefix "/" doi-suffix)
+                  info (d/get-doi-events doi)]
+              [info {::info info}]))
+  :handle-ok (fn [ctx]
+              (export-info (::info ctx))
+              (::info ctx)))
 
 (defroutes app-routes
   (GET "/" [] (redirect "https://github.com/CrossRef/doi-time/blob/master/README.md"))
-    (context "/articles" []
+    (context "/dois" []
       (ANY "/" [] (articles))
-          (context ["/:doi-prefix/:doi-suffix" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (article doi-prefix doi-suffix))))
+          (context ["/:doi-prefix/:doi-suffix/facts" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-facts doi-prefix doi-suffix))
+          (context ["/:doi-prefix/:doi-suffix/events" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-events doi-prefix doi-suffix))
+          ))
 
 (def app
   (-> app-routes
