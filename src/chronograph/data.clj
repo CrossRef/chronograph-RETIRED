@@ -1,5 +1,5 @@
-(ns doi-time.data
-  (:require [doi-time.db :as d])
+(ns chronograph.data
+  (:require [chronograph.db :as d])
   (:require [clj-http.client :as client])
   (:require [crossref.util.config :refer [config]]
             [crossref.util.date :as crdate]

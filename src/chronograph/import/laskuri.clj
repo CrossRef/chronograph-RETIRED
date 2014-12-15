@@ -1,9 +1,10 @@
-(ns doi-time.import.laskuri
+(ns chronograph.import.laskuri
   (:require [clojure.string :refer [split-lines split]])
-  (:require [doi-time.data :as data])
+  (:require [chronograph.data :as data])
   (:require [aws.sdk.s3 :as s3])
   (:require [crossref.util.config :refer [config]])
-  (:require [clj-time.format :as format]))
+  (:require [clj-time.format :as format])
+  (:require [robert.bruce :refer [try-try-again]]))
 
 (def cred {:access-key (:aws-key config) :secret-key (:aws-secret config) :endpoint "s3-us-west-2.amazonaws.com"})
 
@@ -20,13 +21,14 @@
 
 (defn insert-event-from-type
   [bucket base type-name-s3 type-name source-name overwrite f]
+  (prn "Insert" type-name "from" base)
   (let [prefix (key-prefix base type-name-s3)
         type-id (data/get-type-id-by-name type-name)
         source-id (data/get-source-id-by-name source-name)]
     ; Iterate over all 'parts' for this type.
     (do-all bucket prefix
       (fn [s3-key]
-        (let [content (slurp (:content (s3/get-object cred bucket s3-key)))
+        (let [content (slurp (:content (try-try-again #(s3/get-object cred bucket s3-key))))
               lines (split-lines content)]
               (doseq [line lines]
                 (let [[doi date cnt arg1 arg2 arg3] (f line)]

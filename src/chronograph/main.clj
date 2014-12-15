@@ -1,6 +1,6 @@
-(ns doi-time.main
-  (:require [doi-time.data :as d])
-  (:require [doi-time.import.laskuri :as laskuri])
+(ns chronograph.main
+  (:require [chronograph.data :as d])
+  (:require [chronograph.import.laskuri :as laskuri])
   (:require [clojure.java.io :refer [reader]])
   (:require [clojure.edn :as edn])
   (:require [clj-time.format :as format]))

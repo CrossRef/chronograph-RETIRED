@@ -1,3 +1,3 @@
-# Introduction to doi-time
+# Introduction to chronograph
 
 TODO: write [great documentation](http://jacobian.org/writing/great-documentation/what-to-write/)

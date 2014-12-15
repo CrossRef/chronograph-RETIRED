@@ -1,4 +1,4 @@
-(defproject doi-time "0.1.0-SNAPSHOT"
+(defproject chronograph "0.1.0-SNAPSHOT"
   :description "DOI time! Chronological information about DOIs"
   ; :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -19,8 +19,8 @@
                   [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
                   [robert/bruce "0.7.1"]]
   :plugins [[lein-ring "0.8.13"]]
-  :ring {:handler doi-time.handlers/app}
-  :main ^:skip-aot doi-time.main
+  :ring {:handler chronograph.handlers/app}
+  :main ^:skip-aot chronograph.main
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:uberjar {:aot :all}})

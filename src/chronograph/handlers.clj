@@ -1,6 +1,6 @@
-(ns doi-time.handlers
-  (:require [doi-time.data :as d]
-            [doi-time.db :as db])
+(ns chronograph.handlers
+  (:require [chronograph.data :as d]
+            [chronograph.db :as db])
   (:require [compojure.core :refer [context defroutes GET ANY]]
             [compojure.handler :as handler])
   (:require [ring.util.response :refer [redirect]])
@@ -72,7 +72,7 @@
               (::info ctx)))
 
 (defroutes app-routes
-  (GET "/" [] (redirect "https://github.com/CrossRef/doi-time/blob/master/README.md"))
+  (GET "/" [] (redirect "https://github.com/CrossRef/chronograph/blob/master/README.md"))
     (context "/dois" []
       (ANY "/" [] (articles))
           (context ["/:doi-prefix/:doi-suffix/facts" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-facts doi-prefix doi-suffix))

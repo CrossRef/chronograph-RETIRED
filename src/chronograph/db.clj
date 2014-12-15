@@ -1,4 +1,4 @@
-(ns doi-time.db
+(ns chronograph.db
   (:require [crossref.util.config :refer [config]])
   (:require [korma.db :as kdb])
   (:require [korma.core :as k])
