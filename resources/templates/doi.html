@@ -1,0 +1,83 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+<div class="row">
+  <div class="col-md-12">
+    <h1>DOI: {{doi}}</h1>
+    <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
+
+    {% for fact in facts %}
+    <h3>{{fact.type-name}} {{fact.count}}</h3>
+    From {{fact.source-name}}
+    <ul>
+    {% if event.arg1 %}<li>{{fact.arg1desc}}: {{fact.arg1}}</li>{% endif %}
+    {% if event.arg2 %}<li>{{fact.arg2desc}}: {{fact.arg2}}</li>{% endif %}
+    {% if event.arg3 %}<li>{{fact.arg3desc}}: {{fact.arg3}}</li>{% endif %}
+    </ul>
+    {% endfor %}
+
+    <h2>Milestones</h2>
+    {% for event in milestone-events %}
+    <h3>{{event.type-name}}: {{event.event|date:"YYYY-MM-dd"}}</h3>
+    {% if any event.arg1 event.arg2 event.arg3 %}
+    <ul>
+    {% if event.arg1 %}<li>{{event.arg1desc}}: {{event.arg1}}</li>{% endif %}
+    {% if event.arg2 %}<li>{{event.arg2desc}}: {{event.arg2}}</li>{% endif %}
+    {% if event.arg3 %}<li>{{event.arg3desc}}: {{event.arg3}}</li>{% endif %}
+    </ul>
+    {% endif %}
+    <span>From {{event.source-name}}</span>
+    {% endfor %}
+  
+    <h1>Charts</h1>
+    <script>
+    var milestoneMarkers = [
+    {% for event in milestone-events %}
+    {"label": "{{event.type-name}}", "date": new Date("{{event.event|date:"YYYY-MM-dd"}}")}{% if not forloop.last %},{% endif %}
+    {% endfor %}
+    ];
+    </script>
+
+    {% for type, events in continuous-events-by-type %}
+    <!-- <h2>{{type}}</h2> -->
+    <div id="chart-{{forloop.counter}}"></div>
+
+    <script>
+    <!-- TODO JS escape -->
+
+    var data{{forloop.counter}} = [
+    {"date": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}"), "count": 0},
+    {% for event in events %}{"date": new Date("{{ event.event|date:"YYYY-MM-dd"}}"), "count": {{event.count}} },
+    {%endfor %}
+    {"date": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}"), "count": 0}];
+
+    // debugger
+    $(function(){
+        data_graphic({
+            title: "{{type}}",
+            data: data{{forloop.counter}},
+            width: 1140,
+            height: 200,
+            target: '#chart-{{forloop.counter}}',
+            x_accessor: 'date',
+            y_accessor: 'count',
+            min_x: new Date("{{first-date-pad|date:"YYYY-MM-dd"}}"),
+            max_x: new Date("{{last-date-pad|date:"YYYY-MM-dd"}}"),
+            // missing_is_zero: true,
+            interpolate: "step-after",
+            linked: true,
+            legend: "{{type}}",
+            markers: milestoneMarkers
+            // markers: markers
+        })
+    });
+    </script>
+    {% endfor %}
+
+    </div>
+  </div>
+</div>    
+{% endblock %}
+
+

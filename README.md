@@ -4,6 +4,8 @@ Chronological information about DOIs. Information is gathered about DOIs with up
 
 This can be queried by individual DOI or witha bulk query.
 
+TODO try try again for API requests!!!
+
 Support jwass@crossref.org
 
 ## Fields:
@@ -66,3 +68,23 @@ Copyright © 2014 CrossRef
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
+
+
+## See also
+
+http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+
+## TODO
+
+- first date of resolution failure
+- first date of resolution success
+- all timezoned dates
+- escape type names for JS
+- store domain root for domain table, lookup subdomains from domains, vice versa
+
+no issue date??
+
+10.1109/lcomm.2012.030912.11193
+
+- filter out own IP
+

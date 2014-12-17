@@ -1,0 +1,99 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+<div class="row">
+  <div class="col-md-12">
+
+  <div class="alert alert-danger" role="alert">
+    <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+    The data here is only a small demo sample. Do not use this data for anything yet. 
+  </div>
+
+    <h1>DOI Chronograph</h1>
+    <h2>DOIs</h2>
+    <form class="form-horizontal" role="form" method="GET" action="/dois/">
+      <div class="form-group">
+        <label for="doi" class="col-sm-2 control-label">DOI</label>
+        <div class="col-sm-10">
+          <input type="text" class="form-control" id="doi" name="doi" placeholder="10.5555/123456789">
+        </div>
+      </div>
+       <div class="form-group">
+        <div class="col-sm-offset-2 col-sm-10">
+          <button type="submit" class="btn btn-default">Go</button>
+        </div>
+      </div>
+    </form>
+    <h3>Interesting DOIs</h3>
+    <!-- select distinct(events.doi), count(events.doi), doi.doi  from events join doi on doi.id = events.doi where type = 6 group by events.doi order by count(events.doi) desc limit 20; -->
+    <ul>
+      <li><a href="/dois/10.1002/sim.6379">10.1002/sim.6379</a></li>
+      <li><a href="/dois/10.1016/j.fct.2012.08.005">10.1016/j.fct.2012.08.005</a></li>
+      <li><a href="/dois/10.1038/416389a">10.1038/416389a</a></li>
+      <li><a href="/dois/10.1787/888932381893">10.1787/888932381893</a></li>
+      <li><a href="/dois/10.1002/(ISSN)1521-3773">10.1002/(ISSN)1521-3773</a></li>
+      <li><a href="/dois/10.1787/gdp-kusd-gr-table-en">10.1787/gdp-kusd-gr-table-en</a></li>
+      <li><a href="/dois/10.1016/S0140-6736(06)68079-3">10.1016/S0140-6736(06)68079-3</a></li>
+      <li><a href="/dois/10.1045/march2000-owen">10.1045/march2000-owen</a></li>
+      <li><a href="/dois/10.1016/j.bbr.2011.03.031">10.1016/j.bbr.2011.03.031</a></li>
+      <li><a href="/dois/10.1787/20752288">10.1787/20752288</a></li>
+      <li><a href="/dois/10.1787/2074384x-table3">10.1787/2074384x-table3</a></li>
+      <li><a href="/dois/10.1787/factbook-2011-en">10.1787/factbook-2011-en</a></li>
+      <li><a href="/dois/10.1038/nn.3230">10.1038/nn.3230</a></li>
+      <li><a href="/dois/10.1038/NMAT330">10.1038/NMAT330</a></li>
+      <li><a href="/dois/10.1016/j.ssresearch.2012.03.009">10.1016/j.ssresearch.2012.03.009</a></li>
+      <li><a href="/dois/10.1787/5k962hjpwwvj-en">10.1787/5k962hjpwwvj-en</a></li>
+      <li><a href="/dois/10.3322/caac.20138">10.3322/caac.20138</a></li>
+      <li><a href="/dois/10.1038/nature11450">10.1038/nature11450</a></li>
+      <li><a href="/dois/10.1038/nature11537">10.1038/nature11537</a></li>
+      <li><a href="/dois/10.1038/nature11412">10.1038/nature11412</a></li>
+      <li><a href="/dois/10.1038/nature11247">10.1038/nature11247</a></li>
+    </ul>
+
+    <h2>Domains</h2>
+    <form class="form-horizontal" role="form" method="GET" action="/domains/">
+      <div class="form-group">
+        <label for="domain" class="col-sm-2 control-label">Domain</label>
+        <div class="col-sm-10">
+          <input type="text" class="form-control" name="domain" id="domain" placeholder="wikipedia.org">
+        </div>
+      </div>
+       <div class="form-group">
+        <div class="col-sm-offset-2 col-sm-10">
+          <button type="submit" class="btn btn-default">Go</button>
+        </div>
+      </div>
+    </form>
+    <h3>Interesting domains</h3>
+    <ul>
+      <li><a href="/domains/google.com">google.com</a></li>
+      <li><a href="/domains/no-referrer.">no-referrer.</a></li>
+      <li><a href="/domains/nih.gov">nih.gov</a></li>
+      <li><a href="/domains/cdlib.org">cdlib.org</a></li>
+      <li><a href="/domains/scholarsportal.info">scholarsportal.info</a></li>
+    </ul>
+      <!-- select distinct(domain), count(domain), domain  from referrer_domain_events where type = 10 group by domain order by count(domain) desc limit 200; -->
+
+    <h2>Subomains</h2>
+    <form class="form-horizontal" role="form" method="GET" action="/subdomains/">
+      <div class="form-group">
+        <label for="domain" class="col-sm-2 control-label">Subdomain</label>
+        <div class="col-sm-10">
+          <input type="text" class="form-control" name="subdomain" id="domain" placeholder="en.wikipedia.org">
+        </div>
+      </div>
+       <div class="form-group">
+        <div class="col-sm-offset-2 col-sm-10">
+          <button type="submit" class="btn btn-default">Go</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+
+
+
+</div>
+
+{% endblock %}

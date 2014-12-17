@@ -29,6 +29,7 @@ CREATE TABLE types (
     id INTEGER AUTO_INCREMENT PRIMARY KEY,
     ident VARCHAR(128) NOT NULL UNIQUE,
     name TEXT,
+    milestone BOOL NOT NULL DEFAULT FALSE,
     arg1desc TEXT,
     arg2desc TEXT,
     arg3desc TEXT
@@ -66,37 +67,49 @@ CREATE TABLE events (
 create table referrer_domain_events (
    event DATETIME NULL, 
    count INTEGER NOT NULL,
-   subdomain VARCHAR(128) NOT NULL UNIQUE,
-   domain VARCHAR(128) NOT NULL
+   domain VARCHAR(128) NOT NULL,
+   source INT NOT NULL REFERENCES sources(id) ,
+   type INT NOT NULL REFERENCES types(id),
+   inserted DATETIME NOT NULL
 );
+
+CREATE INDEX referrer_domain_events_type_source ON referrer_domain_events (event, domain, source, type);
+
 
 create table referrer_subdomain_events (
    event DATETIME NULL, 
    count INTEGER NOT NULL,
-   subdomain VARCHAR(128) NOT NULL UNIQUE,
+   subdomain VARCHAR(128) NOT NULL,
    domain VARCHAR(128) NOT NULL,
    source INT NOT NULL REFERENCES sources(id) ,
-   type INT NOT NULL REFERENCES types(id)
+   type INT NOT NULL REFERENCES types(id),
+   inserted DATETIME NOT NULL
 );
+
+CREATE INDEX referrer_subdomain_events_type_source ON referrer_subdomain_events (event, subdomain, domain, source, type);
 
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");
 insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution Logs");
 insert into sources (ident, name) values ("CrossRefRobot", "CrossRef Robot");
 
-insert into types (ident, name, arg1desc) values ("issued", "Publisher Issue date", "CrossRef extended date");
-insert into types (ident, name) values ("deposited", "Publisher first deposited with CrossRef");
-insert into types (ident, name) values ("updated", "Publisher most recently updated CrossRef metadata");
-insert into types (ident, name, arg1desc, arg2desc) values ("first-resolution-test", "First attempt DOI resolution test", "Initial resolution URL", "Ultimate resolution URL");
+insert into types (ident, name, milestone, arg1desc) values ("issued", "Publisher Issue date", true, "CrossRef extended date");
+insert into types (ident, name, milestone) values ("deposited","Publisher first deposited with CrossRef", true);
+insert into types (ident, name, milestone) values ("updated", "Publisher most recently updated CrossRef metadata", true);
+insert into types (ident, name, milestone, arg1desc, arg2desc) values ("first-resolution-test", "First attempt DOI resolution test", true, "Initial resolution URL", "Ultimate resolution URL");
 
-insert into types (ident, name) values ("first-resolution", "First DOI resolution");
-insert into types (ident, name) values ("total-resolutions", "Total resolutions count");
+insert into types (ident, name, milestone) values ("first-resolution", "First DOI resolution", true);
+insert into types (ident, name, milestone) values ("total-resolutions", "Total resolutions count", false);
 
-insert into types (ident, name) values ("daily-resolutions", "Daily resolutions count");
-insert into types (ident, name) values ("monthly-resolutions", "Monthly resolutions count");
-insert into types (ident, name) values ("yearly-resolutions", "Yearly resolutions count");
+insert into types (ident, name, milestone) values ("daily-resolutions", "Daily resolutions count", false);
+insert into types (ident, name, milestone) values ("monthly-resolutions", "Monthly resolutions count", false);
+insert into types (ident, name, milestone) values ("yearly-resolutions", "Yearly resolutions count", false);
 
-insert into types (ident, name) values ("daily-referral", "Daily referral count");
-insert into types (ident, name) values ("monthly-referral", "Monthly referral count");
-insert into types (ident, name) values ("yearly-referral", "Yearly referral count");
+insert into types (ident, name, milestone) values ("daily-referral-domain", "Daily referral count from domain", false);
+insert into types (ident, name, milestone) values ("monthly-referral-domain", "Monthly referral count from domain", false);
+insert into types (ident, name, milestone) values ("yearly-referral-domain", "Yearly referral count from domain", false);
+insert into types (ident, name, milestone) values ("total-referrals-domain", "Total referrals count from domain", false);
 
-
+insert into types (ident, name, milestone) values ("daily-referral-subdomain", "Daily referral count from subdomain", false);
+insert into types (ident, name, milestone) values ("monthly-referral-subdomain", "Monthly referral count from subdomain", false);
+insert into types (ident, name, milestone) values ("yearly-referral-subdomain", "Yearly referral count from subdomain", false);
+insert into types (ident, name, milestone) values ("total-referrals-subdomain", "Total referrals count from subdomain", false);

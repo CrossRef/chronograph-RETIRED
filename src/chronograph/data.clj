@@ -20,21 +20,63 @@
 (defn get-source-id-by-name [source-name]
   (:id (first (k/select d/sources (k/where (= :ident source-name))))))
 
-(defn get-doi-id [doi]
+(defn get-doi-id [doi create?]
+  (try
   (let [retrieved (first (k/select d/doi (k/where (= :doi doi))))]
     (if retrieved
       (:id retrieved)
-      (let [inserted (k/insert d/doi (k/values {:doi doi}))]
+      (when create? (let [inserted (k/insert d/doi (k/values {:doi doi}))]
         (:GENERATED_KEY inserted)))))
+  ; Return nil on error
+  (catch Exception e (prn "EXCEPTION" e))))
 
 (defn insert-event [doi type-id source-id date overwrite cnt arg1 arg2 arg3]
-  (let [doi-id (get-doi-id doi)]
+  (let [doi-id (get-doi-id doi true)]
     (when overwrite (k/delete d/events (k/where {:doi doi-id
                                                 :event (coerce/to-sql-time date)
                                                 :source source-id
                                                 :type type-id})))
-    (k/insert d/events (k/values {:doi doi-id :type type-id :source source-id :event (coerce/to-sql-time date) :inserted (coerce/to-sql-time (t/now)) :count (or cnt 1) :arg1 arg1 :arg2 arg2 :arg3 arg3}))))
+    (try
+    (k/insert d/events (k/values {:doi doi-id
+                                  :type type-id
+                                  :source source-id
+                                  :event (coerce/to-sql-time date)
+                                  :inserted (coerce/to-sql-time (t/now))
+                                  :count (or cnt 1)
+                                  :arg1 arg1 :arg2 arg2 :arg3 arg3}))
+    (catch Exception e (prn "EXCEPTION" e)))))
 
+
+(defn insert-domain-event [host domain type-id source-id date overwrite cnt]
+    (when overwrite (k/delete d/referrer-domain-events (k/where {:domain domain
+                                                                :event (coerce/to-sql-time date)
+                                                                :source source-id
+                                                                :type type-id})))
+    (try
+    (k/insert d/referrer-domain-events (k/values {:host host
+                                                  :domain domain
+                                                  :type type-id
+                                                  :source source-id
+                                                  :event (coerce/to-sql-time date)
+                                                  :inserted (coerce/to-sql-time (t/now))
+                                                  :count (or cnt 1)}))
+    (catch Exception e (prn "EXCEPTION" e))))
+
+(defn insert-subdomain-event [host domain type-id source-id date overwrite cnt]
+    (when overwrite (k/delete d/referrer-domain-events (k/where {:domain domain
+                                                                 :host host
+                                                                :event (coerce/to-sql-time date)
+                                                                :source source-id
+                                                                :type type-id})))
+    (try
+    (k/insert d/referrer-subdomain-events (k/values { :host host
+                                                      :domain domain
+                                                      :type type-id
+                                                      :source source-id
+                                                      :event (coerce/to-sql-time date)
+                                                      :inserted (coerce/to-sql-time (t/now))
+                                                      :count (or cnt 1)}))
+    (catch Exception e (prn "EXCEPTION" e))))
 
 (defn get-last-run-date
   "Last date that the DOI import was run."
@@ -148,7 +190,7 @@
                             [:types.name :type-name]))]
   events)))
 
-(defn get-doi-events [the-doi]
+(defn get-doi-events 
   "Get 'events' (i.e. events with a date stamp)"
   [the-doi]
   (when-let [doi (first (k/select d/doi (k/where (= :doi the-doi))))]
@@ -160,8 +202,59 @@
                  (k/order :events.event)
                  (k/fields [:sources.name :source-name]
                             [:types.name :type-name]))]
-  events)))
+      events)))
+
+(defn get-domain-events
+  "Get domain 'events' (i.e. events with a date stamp)"
+  [host]
+  (let [events (k/select d/referrer-domain-events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (not= :event nil) (= :host host)))
+               (k/order :referrer_domain_events.event)
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+    events))
+
+(defn get-subdomain-events
+  "Get subdomain 'events' (i.e. events with a date stamp)"
+  [host]
+  (let [events (k/select d/referrer-subdomain-events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (not= :event nil) (= :host host)))
+               (k/order :referrer_subdomain_events.event)
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+    events))
+
 (defn set-first-resolution-log [the-doi date]
   (k/exec-raw ["insert into doi (doi, firstResolutionLog) values (?, ?) on duplicate key update firstResolutionLog = ?"
                [the-doi (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
 
+(defn delete-events-for-type [type-name]
+  (let [type-id (get-type-id-by-name type-name)]
+    (prn "Delete events for type" type-name type-id)
+    (k/delete d/events (k/where (= :type type-id)))))
+
+(defn delete-domain-events-for-type [type-name]
+  (let [type-id (get-type-id-by-name type-name)]
+    (prn "Delete referrer domain events for type" type-name type-id)
+    (k/delete d/referrer-domain-events (k/where (= :type type-id)))))
+
+(defn delete-subdomain-events-for-type [type-name]
+  (let [type-id (get-type-id-by-name type-name)]
+    (prn "Delete referrer subdomain events for type" type-name type-id)
+    (k/delete d/referrer-subdomain-events (k/where (= :type type-id)))))
+
+(defn get-other-subdomains [host]
+  ; Find mapping of host www.xyz.com to domain xyz
+  (when-let [sample (first (k/select d/referrer-subdomain-events (k/where (= :host host)) (k/limit 1)))]
+    (let [domain (:domain sample)
+          other-subdomains (k/select d/referrer-subdomain-events
+                                     (k/fields :host)
+                                     (k/group :host)
+                                     (k/aggregate (sum :count) :cnt)
+                                     (k/where (= :domain domain))
+                                     (k/order :cnt :desc))]
+      other-subdomains)))

@@ -1,0 +1,58 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+<div class="row">
+  <div class="col-md-12">
+    <h1>Subdomain: {{subdomain}}</h1>
+    <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
+  
+    <h1>Charts</h1>
+
+    {% for type, events in events-by-type %}
+    <!-- <h2>{{type}}</h2> -->
+    <div id="chart-{{forloop.counter}}"></div>
+
+    <script>
+    <!-- TODO JS escape -->
+
+    var data{{forloop.counter}} = [
+    {"date": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}"), "count": 0},
+    {% for event in events %}{"date": new Date("{{ event.event|date:"YYYY-MM-dd"}}"), "count": {{event.count}} },
+    {%endfor %}
+    {"date": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}"), "count": 0}];
+
+    // debugger
+    $(function(){
+        data_graphic({
+            title: "{{type}}",
+            data: data{{forloop.counter}},
+            width: 1140,
+            height: 200,
+            target: '#chart-{{forloop.counter}}',
+            x_accessor: 'date',
+            y_accessor: 'count',
+            min_x: new Date("{{first-date-pad|date:"YYYY-MM-dd"}}"),
+            max_x: new Date("{{last-date-pad|date:"YYYY-MM-dd"}}"),
+            // missing_is_zero: true,
+            interpolate: "step-after",
+            linked: true,
+            legend: "{{type}}",
+            chart_type: "line"
+        })
+    });
+    </script>
+    {% endfor %}
+
+    <h1>Other subdomains</h1>
+    <ul>
+    {% for subdomain in other-subdomains %}
+    <li><a href="/subdomains/{{subdomain.host}}">{{subdomain.host}}: {{subdomain.cnt}}</a></li>
+    {% endfor %}
+    </ul>
+    </div>
+  </div>
+</div>    
+{% endblock %}
+
+

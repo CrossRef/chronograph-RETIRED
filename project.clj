@@ -17,7 +17,8 @@
                   [liberator "0.12.2"]
                   [ring "1.3.2"]
                   [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
-                  [robert/bruce "0.7.1"]]
+                  [robert/bruce "0.7.1"]
+                  [selmer "0.7.7"]]
   :plugins [[lein-ring "0.8.13"]]
   :ring {:handler chronograph.handlers/app}
   :main ^:skip-aot chronograph.main

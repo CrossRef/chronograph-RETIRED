@@ -54,7 +54,7 @@
 
 (k/defentity types
   (k/pk :id)
-  (k/entity-fields :id :ident :name :arg1desc :arg2desc :arg3desc))
+  (k/entity-fields :id :ident :name :milestone :arg1desc :arg2desc :arg3desc))
 
 (k/defentity events
   (k/pk :id)
@@ -70,4 +70,44 @@
     :arg2
     :arg3)
   (k/belongs-to sources {:fk :source})
-  (k/belongs-to types {:fk :type}))
+  (k/belongs-to types {:fk :type})
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :event (when-let [d (:event input)] (coerce-sql-date d)))))))
+
+(k/defentity referrer-domain-events
+  (k/table "referrer_domain_events")
+  (k/entity-fields
+    :event
+    :count
+    :host
+    :domain
+    :source
+    :type)
+    (k/belongs-to sources {:fk :source})
+    (k/belongs-to types {:fk :type})
+    (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :event (when-let [d (:event input)] (coerce-sql-date d)))))))
+
+(k/defentity referrer-subdomain-events
+  (k/table "referrer_subdomain_events")
+  (k/entity-fields
+    :event
+    :count
+    :host
+    :domain
+    :source
+    :type)
+  (k/belongs-to sources {:fk :source})
+  (k/belongs-to types {:fk :type})
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :event (when-let [d (:event input)] (coerce-sql-date d)))))))
+
