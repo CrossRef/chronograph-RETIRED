@@ -199,7 +199,10 @@
     (doseq [partit partitions]
       (let [doi (first (first partit))
             timeline (apply merge (map (fn [[doi date cnt _ _ _]] {date cnt}) partit))]
-        (data/insert-event-timeline doi type-id source-id timeline (fn [old nw] nw))))))
+        (try
+          ; SQL exception will be logged. 
+          (data/insert-event-timeline doi type-id source-id timeline (fn [old nw] nw))
+          (catch Exception _))))))
 
 
 (defn insert-grouped-domain-event-from-local-type
@@ -229,7 +232,9 @@
     (doseq [partit partitions]
       (let [[host domain _ _] (first partit)
             timeline (apply merge (map (fn [[_ _ date cnt]] {date cnt}) partit))]
-        (data/insert-domain-timeline host domain type-id source-id timeline (fn [old nw] nw))))))
+        (try
+          (data/insert-domain-timeline host domain type-id source-id timeline (fn [old nw] nw))
+          (catch Exception _ nil))))))
         
         
 (defn insert-grouped-subdomain-event-from-local-type
@@ -259,7 +264,9 @@
     (doseq [partit partitions]
       (let [[host domain _ _] (first partit)
             timeline (apply merge (map (fn [[_ _ date cnt]] {date cnt}) partit))]
-        (data/insert-subdomain-timeline host domain type-id source-id timeline (fn [old nw] nw))))))
+        (try
+        (data/insert-subdomain-timeline host domain type-id source-id timeline (fn [old nw] nw))
+        (catch Exception _ nil))))))
 
 (defn run-local-grouped
     "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."

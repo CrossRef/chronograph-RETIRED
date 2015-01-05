@@ -130,7 +130,7 @@ create table referrer_domain_events (
    inserted DATETIME NOT NULL
 );
 
-CREATE INDEX referrer_domain_events_type_source ON referrer_domain_events (event, domain, host, source, type);
+CREATE INDEX referrer_domain_events_type_source ON referrer_domain_events (event, domain, source, type);
 
 create table referrer_subdomain_events (
    event DATETIME NULL, 
