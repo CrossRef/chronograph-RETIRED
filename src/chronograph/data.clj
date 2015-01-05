@@ -217,7 +217,7 @@
   (let [base-q (if date 
           {:filter (str "from-update-date:" (unparse yyyy-mm-dd date))}
           {})
-        results (client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json})
+        results (try-try-again #(client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json}))
         num-results (-> results :body :message :total-results)
         ; Extra page just in case.
         num-pages (+ (quot num-results api-page-size) 2)
@@ -231,7 +231,7 @@
     
       (doseq [page-query page-queries]
         (prn "Fetching" page-query)
-        (let [response (client/get page-query {:as :json})
+        (let [response (try-try-again #(client/get page-query {:as :json}))
               items (-> response :body :message :items)]
           (prn "Fetched")
           (doseq [item items]
