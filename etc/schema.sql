@@ -41,6 +41,7 @@ CREATE TABLE doi (
     UNIQUE(DOI),
     UNIQUE(ID));
 
+-- Individual events
 CREATE TABLE events (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     doi INT NOT NULL REFERENCES DOI(ID),
@@ -64,6 +65,62 @@ CREATE TABLE events (
     arg3 TEXT
 );
 
+-- Storage of entire timeline per DOI.
+CREATE TABLE event_timelines (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    doi INT NOT NULL REFERENCES DOI(ID),
+
+    -- datetime this was inserted
+    inserted DATETIME NOT NULL, 
+
+    source INT NOT NULL REFERENCES sources(id) ,
+    type INT NOT NULL REFERENCES types(id),
+
+    -- JSON of date -> count
+    timeline MEDIUMBLOB
+);
+
+CREATE INDEX event_timelines_doi_source_type ON event_timelines (doi, source, type);
+
+-- Storage of entire timeline per referrer domain.
+CREATE TABLE referrer_domain_timelines (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    domain VARCHAR(128) NOT NULL,
+    host VARCHAR(128) NOT NULL,
+
+
+    -- datetime this was inserted
+    inserted DATETIME NOT NULL, 
+
+    source INT NOT NULL REFERENCES sources(id) ,
+    type INT NOT NULL REFERENCES types(id),
+
+    -- JSON of date -> count
+    timeline MEDIUMBLOB
+);
+
+CREATE INDEX domain_timelines_domain_source_type ON referrer_domain_timelines (domain, host, source, type);
+
+-- Storage of entire timeline per referrer subdomain.
+CREATE TABLE referrer_subdomain_timelines (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    domain VARCHAR(128) NOT NULL,
+    host VARCHAR(128) NOT NULL,
+
+
+    -- datetime this was inserted
+    inserted DATETIME NOT NULL, 
+
+    source INT NOT NULL REFERENCES sources(id) ,
+    type INT NOT NULL REFERENCES types(id),
+
+    -- JSON of date -> count
+    timeline MEDIUMBLOB
+);
+
+CREATE INDEX domain_timelines_subdomain_source_type ON referrer_subdomain_timelines (domain, host, source, type);
+CREATE INDEX domain_subdomain ON referrer_subdomain_timelines (domain);
+
 create table referrer_domain_events (
    event DATETIME NULL, 
    count INTEGER NOT NULL,
@@ -73,8 +130,7 @@ create table referrer_domain_events (
    inserted DATETIME NOT NULL
 );
 
-CREATE INDEX referrer_domain_events_type_source ON referrer_domain_events (event, domain, source, type);
-
+CREATE INDEX referrer_domain_events_type_source ON referrer_domain_events (event, domain, host, source, type);
 
 create table referrer_subdomain_events (
    event DATETIME NULL, 

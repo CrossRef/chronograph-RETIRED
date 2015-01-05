@@ -265,7 +265,6 @@
     "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."
     [base]    
     (prn "Run Laskuri Local Grouped")
-    ; (insert-grouped-event-from-local-type base "day-doi-period-count" "daily-resolutions" "CrossRefLogs" parse-doi-date-count)
+    (insert-grouped-event-from-local-type base "day-doi-period-count" "daily-resolutions" "CrossRefLogs" parse-doi-date-count)
     (insert-grouped-domain-event-from-local-type base "day-domain-period-count" "daily-referral-domain" "CrossRefLogs" parse-host-domain-date-count)
-    ; (insert-grouped-subdomain-event-from-local-type base "day-subdomain-period-count" "daily-referral-subdomain" "CrossRefLogs" parse-host-domain-date-count)
-    )
+    (insert-grouped-subdomain-event-from-local-type base "day-subdomain-period-count" "daily-referral-subdomain" "CrossRefLogs" parse-host-domain-date-count))
