@@ -4,6 +4,9 @@
   (:require [korma.core :as k])
   (:require [korma.db :refer [mysql with-db defdb]])
   (:require [clj-time.coerce :as coerce])
+  (:require [clojure.data.json :as json])
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :refer [reader]])
   (:require [korma.sql.engine :as korma-engine]
             [korma.core :refer :all]))
 
@@ -76,6 +79,85 @@
       (when input
         (assoc input
           :event (when-let [d (:event input)] (coerce-sql-date d)))))))
+
+(defn coerce-timeline-in [timeline]
+  "Coerce a timeline to Java Date from Joda Date, so it can be serialized"
+  (reduce-kv (fn [m k v] (assoc m (coerce/to-date k) v)) {} timeline))
+
+(defn coerce-timeline-out [timeline]
+  (reduce-kv (fn [m k v] (assoc m (coerce/from-date k) v)) {} timeline))
+
+(k/defentity event-timelines
+  (k/table "event_timelines")
+  (k/pk :id)
+  (k/entity-fields
+    :id
+    :doi
+    :inserted
+    :source
+    :type
+    :timeline)
+  (k/belongs-to sources {:fk :source})
+  (k/belongs-to types {:fk :type})
+  (k/prepare
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (pr-str (coerce-timeline-in d)))))))
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
+
+(k/defentity referrer-domain-timelines
+  (k/table "referrer_domain_timelines")
+  (k/pk :id)
+  (k/entity-fields
+    :id
+    :domain
+    :host
+    :inserted
+    :source
+    :type
+    :timeline)
+  (k/belongs-to sources {:fk :source})
+  (k/belongs-to types {:fk :type})
+  (k/prepare
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (pr-str (coerce-timeline-in d)))))))
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
+
+(k/defentity referrer-subdomain-timelines
+  (k/table "referrer_subdomain_timelines")
+  (k/pk :id)
+  (k/entity-fields
+    :id
+    :domain
+    :host
+    :inserted
+    :source
+    :type
+    :timeline)
+  (k/belongs-to sources {:fk :source})
+  (k/belongs-to types {:fk :type})
+  (k/prepare
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (pr-str (coerce-timeline-in d)))))))
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
+
 
 (k/defentity referrer-domain-events
   (k/table "referrer_domain_events")

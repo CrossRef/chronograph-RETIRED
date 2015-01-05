@@ -30,6 +30,7 @@
     <span>From {{event.source-name}}</span>
     {% endfor %}
   
+    {% if first-date last-date %}
     <h1>Charts</h1>
     <script>
     var milestoneMarkers = [
@@ -42,7 +43,6 @@
     {% for type, events in continuous-events-by-type %}
     <!-- <h2>{{type}}</h2> -->
     <div id="chart-{{forloop.counter}}"></div>
-
     <script>
     <!-- TODO JS escape -->
 
@@ -75,6 +75,46 @@
     </script>
     {% endfor %}
 
+    {% for timeline in timelines %}
+    <div id="chart-timeline-{{forloop.counter}}"></div>
+    <script>
+    <!-- TODO JS escape -->
+
+    var data_timeline_{{forloop.counter}} = [
+    {"date": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}"), "count": 0},
+    {% for dt, count in timeline.timeline %}{"date": new Date("{{ dt|date:"YYYY-MM-dd"}}"), "count": {{count}} },
+    {%endfor %}
+    {"date": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}"), "count": 0}
+    ];
+
+    // debugger
+    $(function(){
+        data_graphic({
+            title: "{{timeline.name}}",
+            data: data_timeline_{{forloop.counter}},
+            width: 1140,
+            height: 200,
+            target: '#chart-timeline-{{forloop.counter}}',
+            x_accessor: 'date',
+            y_accessor: 'count',
+            min_x: new Date("{{first-date-pad|date:"YYYY-MM-dd"}}"),
+            max_x: new Date("{{last-date-pad|date:"YYYY-MM-dd"}}"),
+            // missing_is_zero: true,
+            interpolate: "step",
+            linked: true,
+            legend: "{{type}}",
+            markers: milestoneMarkers
+            // markers: markers
+        })
+    });
+    </script>
+    {% endfor %}
+
+
+    {% else %}
+    No data
+
+    {% endif %}
     </div>
   </div>
 </div>    

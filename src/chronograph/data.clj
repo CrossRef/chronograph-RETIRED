@@ -5,7 +5,8 @@
             [crossref.util.date :as crdate]
             [crossref.util.doi :as crdoi])
   (:require [korma.core :as k])
-  (:require [clj-time.core :as t])
+  (:require [clj-time.core :as t]
+            [clj-time.periodic :as time-period])
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
   (:require [robert.bruce :refer [try-try-again]]))
@@ -46,6 +47,128 @@
                                   :arg1 arg1 :arg2 arg2 :arg3 arg3}))
     (catch Exception e (prn "EXCEPTION" e)))))
 
+(defn insert-event-timeline
+  "Insert parts of an DOI's event timeline. This will merge the existing data.
+  This should be used to update large quantities of data per DOI, source, type.
+  merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
+  [doi type-id source-id data merge-fn]
+  (let [doi-id (get-doi-id doi true)
+        initial-row (first (k/select d/event-timelines
+                                     (k/where (and
+                                                (= :doi doi-id)
+                                                (= :type type-id)
+                                                (= :source source-id)))))
+        initial-row-data (or (:timeline initial-row) {})
+        merged-data (merge-with merge-fn initial-row-data data)]
+    (if initial-row
+      (k/update d/event-timelines
+                (k/where {:doi doi-id
+                          :type type-id
+                          :source source-id})
+                (k/set-fields {:timeline merged-data}))
+      
+      (k/insert d/event-timelines
+                (k/values {:doi doi-id
+                           :type type-id
+                           :source source-id
+                           :inserted (coerce/to-sql-time (t/now))
+                           :timeline merged-data})))))
+
+(defn insert-domain-timeline
+  "Insert parts of a Referrer Domain's event timeline. This will merge the existing data.
+  This should be used to update large quantities of data per Domain.
+  merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
+  [host domain type-id source-id data merge-fn]
+  (let [initial-row (first (k/select d/referrer-domain-timelines
+                                     (k/where (and
+                                                (= :domain domain)
+                                                (= :host host)
+                                                (= :type type-id)
+                                                (= :source source-id)))))
+        initial-row-data (or (:timeline initial-row) {})
+        merged-data (merge-with merge-fn initial-row-data data)]
+    (if initial-row
+      (k/update d/referrer-domain-timelines
+                (k/where {:domain domain
+                          :host host
+                          :type type-id
+                          :source source-id})
+                (k/set-fields {:timeline merged-data}))
+      
+      (k/insert d/referrer-domain-timelines
+                (k/values {:domain domain
+                           :host host
+                           :type type-id
+                           :source source-id
+                           :inserted (coerce/to-sql-time (t/now))
+                           :timeline merged-data})))))
+
+(defn insert-subdomain-timeline
+  "Insert parts of a Referrer Subdomain's event timeline. This will merge the existing data.
+  This should be used to update large quantities of data per Domain.
+  merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
+  [host domain type-id source-id data merge-fn]
+  (let [initial-row (first (k/select d/referrer-subdomain-timelines
+                                     (k/where (and
+                                                (= :domain domain)
+                                                (= :host host)
+                                                (= :type type-id)
+                                                (= :source source-id)))))
+        initial-row-data (or (:timeline initial-row) {})
+        merged-data (merge-with merge-fn initial-row-data data)]
+    (if initial-row
+      (k/update d/referrer-subdomain-timelines
+                (k/where {:domain domain
+                          :host host
+                          :type type-id
+                          :source source-id})
+                (k/set-fields {:timeline merged-data}))
+      
+      (k/insert d/referrer-subdomain-timelines
+                (k/values {:domain domain
+                           :host host
+                           :type type-id
+                           :source source-id
+                           :inserted (coerce/to-sql-time (t/now))
+                           :timeline merged-data})))))
+
+(defn sort-timeline-values
+  "For a hashmap timeline, return as sorted list"
+  [timeline]
+  (into (sorted-map) (sort-by first t/before? (seq timeline))))
+
+(defn get-doi-timelines
+  "Get all timelines for a DOI"
+  [doi]
+  (when-let [timelines (k/select
+    d/event-timelines
+    (k/where {:doi (get-doi-id doi false)})
+    (k/with d/types))]
+    (map (fn [timeline]
+           (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
+         timelines)))
+
+(defn get-domain-timelines
+  "Get all timelines for a domain"
+  [domain]
+  (when-let [timelines (k/select
+    d/referrer-domain-timelines
+    (k/where {:host domain})
+    (k/with d/types))]
+    (map (fn [timeline]
+           (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
+         timelines)))
+
+(defn get-subdomain-timelines
+  "Get all timelines for a subdomain"
+  [subdomain]
+  (when-let [timelines (k/select
+    d/referrer-domain-timelines
+    (k/where {:host subdomain})
+    (k/with d/types))]
+    (map (fn [timeline]
+           (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
+         timelines)))
 
 (defn insert-domain-event [host domain type-id source-id date overwrite cnt]
     (when overwrite (k/delete d/referrer-domain-events (k/where {:domain domain
@@ -249,12 +372,39 @@
 
 (defn get-other-subdomains [host]
   ; Find mapping of host www.xyz.com to domain xyz
-  (when-let [sample (first (k/select d/referrer-subdomain-events (k/where (= :host host)) (k/limit 1)))]
+  (when-let [sample (first (k/select d/referrer-subdomain-timelines (k/where (= :host host)) (k/limit 1)))]
     (let [domain (:domain sample)
-          other-subdomains (k/select d/referrer-subdomain-events
+          other-subdomains (k/select d/referrer-subdomain-timelines
                                      (k/fields :host)
                                      (k/group :host)
-                                     (k/aggregate (sum :count) :cnt)
+                                     ; (k/aggregate (sum :count) :cnt)
                                      (k/where (= :domain domain))
-                                     (k/order :cnt :desc))]
+                                     ; (k/order :cnt :desc)
+                                     )]
       other-subdomains)))
+
+(defn get-subdomains-for-domain-host [host]
+    (when-let [sample (first (k/select d/referrer-domain-timelines (k/where (= :host host)) (k/limit 1)))]
+    (let [domain (:domain sample)
+          subdomains (k/select d/referrer-subdomain-timelines
+                                     (k/fields :host)
+                                     (k/group :host)
+                                     ; (k/aggregate (sum :count) :cnt)
+                                     (k/where (= :domain domain))
+                                     ; (k/order :cnt :desc)
+                                     )]
+      subdomains)))
+
+(defn time-range
+  "Return a lazy sequence of DateTime's from start to end, incremented
+  by 'step' units of time."
+  [start end step]
+  (let [inf-range (time-period/periodic-seq start step)
+        below-end? (fn [tt] (t/within? (t/interval start end)
+                                         tt))]
+    (take-while below-end? inf-range)))
+
+(defn interpolate-timeline
+  [values first-date last-date step]
+  (let [date-range (time-range first-date last-date step)]
+    (map (fn [date] [date (or (get values date) 0)]) date-range)))

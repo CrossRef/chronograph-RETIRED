@@ -107,16 +107,18 @@
 
 
 (defn parse-doi-date-count [line]
+  (try ; TODO once the output of Laskuri is better cleaned up this should be removed.
   (let [[doi date-str count-str] (split line #"\t")
         date (format/parse date-str)
         cnt (. Integer parseInt count-str)]
-    [doi date cnt nil nil nil]))
+    [doi date cnt nil nil nil])
+  (catch Exception _ nil)))
 
 (defn parse-host-domain-date-count [line]
   (let [[host domain date-str count-str] (split line #"\t")
         date (format/parse date-str)
         cnt (. Integer parseInt count-str)]
-    [domain date cnt]))
+    [host domain date cnt]))
 
 (defn parse-doi-count [line]
   (let [[doi count-str] (split line #"\t")
@@ -137,6 +139,7 @@
     (insert-event-from-s3-type bucket base "year-doi-period-count" "yearly-resolutions" "CrossRefLogs" false parse-doi-date-count)
     (insert-event-from-s3-type bucket base "month-doi-period-count" "monthly-resolutions" "CrossRefLogs" false parse-doi-date-count)
     (insert-event-from-s3-type bucket base "day-doi-period-count" "daily-resolutions" "CrossRefLogs" false parse-doi-date-count))
+
 
 (defn run-local
     "Import latest Laskuri output from a local directory. Base is the directory within the bucket, usually a timestamp."
@@ -166,4 +169,103 @@
     ; (insert-subdomain-event-from-local-type base "day-subdomain-period-count" "daily-referral-subdomain" "CrossRefLogs" false parse-subdomain-date-count)
     ; (insert-subdomain-event-from-local-type base "month-subdomain-period-count" "monthly-referral-subdomain" "CrossRefLogs" false parse-host-domain-date-count)
     (insert-subdomain-event-from-local-type base "year-subdomain-period-count" "yearly-referral-subdomain" "CrossRefLogs" false parse-host-domain-date-count)
+    )
+
+; TODO code duplication
+
+(defn insert-grouped-event-from-local-type
+  [base type-name-s3 type-name source-name f]
+  (prn "Insert" type-name "from" base)
+  (let [directory (clojure.java.io/file (str base "/" type-name-s3 "/"))  
+        type-id (data/get-type-id-by-name type-name)
+        source-id (data/get-source-id-by-name source-name)
+        files (file-seq directory)
+        ; filter out self, directory, crc files etc
+        part-files (filter #(re-matches #"^part-\d*$" (.getName %)) files)
+        
+        ; Lazy seq of the files.
+        seqs (map #(line-seq (clojure.java.io/reader %)) part-files)
+        
+        ; Lazy seq of all lines.
+        whole (apply concat seqs)
+        
+        ; Lazy seq of lines parsed.
+        parsed (remove nil? (map f whole))
+        
+        ; Grouped by DOI
+        partitions (partition-by first parsed)]
+    
+    ; Iterate over all 'parts' for this type.
+    (doseq [partit partitions]
+      (let [doi (first (first partit))
+            timeline (apply merge (map (fn [[doi date cnt _ _ _]] {date cnt}) partit))]
+        (data/insert-event-timeline doi type-id source-id timeline (fn [old nw] nw))))))
+
+
+(defn insert-grouped-domain-event-from-local-type
+  [base type-name-s3 type-name source-name f]
+  (prn "Insert domain" type-name "from" base)
+  (let [directory (clojure.java.io/file (str base "/" type-name-s3 "/"))  
+        type-id (data/get-type-id-by-name type-name)
+        source-id (data/get-source-id-by-name source-name)
+        
+        files (file-seq directory)
+        ; filter out self, directory, crc files etc
+        part-files (filter #(re-matches #"^part-\d*$" (.getName %)) files)
+        
+        ; Lazy seq of the files.
+        seqs (map #(line-seq (clojure.java.io/reader %)) part-files)
+        
+        ; Lazy seq of all lines.
+        whole (apply concat seqs)
+        
+        ; Lazy seq of lines parsed.
+        parsed (remove nil? (map f whole))
+        
+        ; Grouped by Domain
+        partitions (partition-by second parsed)]
+    
+    ; Iterate over all 'parts' for this type.
+    (doseq [partit partitions]
+      (let [[host domain _ _] (first partit)
+            timeline (apply merge (map (fn [[_ _ date cnt]] {date cnt}) partit))]
+        (data/insert-domain-timeline host domain type-id source-id timeline (fn [old nw] nw))))))
+        
+        
+(defn insert-grouped-subdomain-event-from-local-type
+  [base type-name-s3 type-name source-name f]
+  (prn "Insert subdomain" type-name "from" base)
+  (let [directory (clojure.java.io/file (str base "/" type-name-s3 "/"))  
+        type-id (data/get-type-id-by-name type-name)
+        source-id (data/get-source-id-by-name source-name)
+        
+        files (file-seq directory)
+        ; filter out self, directory, crc files etc
+        part-files (filter #(re-matches #"^part-\d*$" (.getName %)) files)
+        
+        ; Lazy seq of the files.
+        seqs (map #(line-seq (clojure.java.io/reader %)) part-files)
+        
+        ; Lazy seq of all lines.
+        whole (apply concat seqs)
+        
+        ; Lazy seq of lines parsed.
+        parsed (remove nil? (map f whole))
+        
+        ; Grouped by Domain
+        partitions (partition-by second parsed)]
+    
+    ; Iterate over all 'parts' for this type.
+    (doseq [partit partitions]
+      (let [[host domain _ _] (first partit)
+            timeline (apply merge (map (fn [[_ _ date cnt]] {date cnt}) partit))]
+        (data/insert-subdomain-timeline host domain type-id source-id timeline (fn [old nw] nw))))))
+
+(defn run-local-grouped
+    "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."
+    [base]    
+    (prn "Run Laskuri Local Grouped")
+    ; (insert-grouped-event-from-local-type base "day-doi-period-count" "daily-resolutions" "CrossRefLogs" parse-doi-date-count)
+    (insert-grouped-domain-event-from-local-type base "day-domain-period-count" "daily-referral-domain" "CrossRefLogs" parse-host-domain-date-count)
+    ; (insert-grouped-subdomain-event-from-local-type base "day-subdomain-period-count" "daily-referral-subdomain" "CrossRefLogs" parse-host-domain-date-count)
     )

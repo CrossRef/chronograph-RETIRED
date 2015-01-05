@@ -44,12 +44,47 @@
     </script>
     {% endfor %}
 
+    {% for timeline in timelines %}
+    <div id="chart-timeline-{{forloop.counter}}"></div>
+    <script>
+    <!-- TODO JS escape -->
+
+    var data_timeline_{{forloop.counter}} = [
+    
+    {% for dt, count in timeline.timeline %}{"date": new Date("{{ dt|date:"YYYY-MM-dd"}}"), "count": {{count}} } {% if not forloop.last %},{% endif %}
+    {%endfor %}
+    
+    ];
+
+    // debugger
+    $(function(){
+        data_graphic({
+            title: "{{timeline.name}}",
+            data: data_timeline_{{forloop.counter}},
+            width: 1140,
+            height: 200,
+            target: '#chart-timeline-{{forloop.counter}}',
+            x_accessor: 'date',
+            y_accessor: 'count',
+            min_x: new Date("{{first-date-pad|date:"YYYY-MM-dd"}}"),
+            max_x: new Date("{{last-date-pad|date:"YYYY-MM-dd"}}"),
+            // missing_is_zero: true,
+            interpolate: "step",
+            linked: true,
+            legend: "{{type}}"
+        })
+    });
+    </script>
+    {% endfor %}
+
+    {% if other-subdomains %}
     <h1>Other subdomains</h1>
     <ul>
     {% for subdomain in other-subdomains %}
     <li><a href="/subdomains/{{subdomain.host}}">{{subdomain.host}}: {{subdomain.cnt}}</a></li>
     {% endfor %}
     </ul>
+    {% endif %}
     </div>
   </div>
 </div>    

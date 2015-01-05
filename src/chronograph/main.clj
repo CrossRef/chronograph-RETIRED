@@ -27,4 +27,10 @@
   ; (when (= (first args) "resolve")
   ;     (prn "DOI Resolution")
   ;     (d/run-doi-resolution))
+  
+  
+  (when (= (first args) "grouped-laskuri-local")
+    (prn "Import local Laskuri data grouped by DOI")
+    (laskuri/run-local-grouped (second args)))
+
  )  
