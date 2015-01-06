@@ -62,7 +62,10 @@ CREATE TABLE event_timelines (
     type INT NOT NULL REFERENCES types(id),
 
     -- JSON of date -> count
-    timeline MEDIUMBLOB);
+    timeline MEDIUMBLOB,
+
+    UNIQUE(doi, source, type)
+);
 
 CREATE INDEX event_timelines_doi_source_type ON event_timelines (doi, source, type);
 CREATE INDEX event_timelines_doi ON event_timelines (doi);
