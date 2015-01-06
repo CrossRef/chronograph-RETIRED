@@ -273,3 +273,58 @@ body {
     from { opacity: 0; }
     to   { opacity: 1; }
 }
+
+
+/** Metricsgraphics */
+
+
+   .markers text {
+    fill: black;
+    font-size: 1.1rem !important;
+    opacity: 1;
+    }
+
+
+    .x-axis text,
+.y-axis text,
+.histogram .axis text {
+    fill: black;
+    font-size: 1.1rem;
+    opacity: 0.5;
+}
+
+.x-axis .label,
+.y-axis .label,
+.axis .label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 400;
+}
+
+.x-axis-small text,
+.y-axis-small text,
+.active-datapoint-small {
+    font-size: 0.6rem;
+}
+
+.x-axis-small .label,
+.y-axis-small .label {
+    font-size: 0.65rem;
+}
+
+.year-marker text {
+    fill: black;
+    font-size: 1.3rem;
+    opacity: 0.5;
+}
+
+.year-marker line {
+    opacity: 0.2;
+    shape-rendering: crispEdges;
+    stroke: black;
+    stroke-width: 1;
+}
+
+.year-marker-small text {
+    font-size: 0.6rem;
+}
