@@ -1,17 +1,3 @@
-CREATE TABLE olddoi (
-    doi VARCHAR(700) PRIMARY KEY,
-    -- issued date lossily coerced into a datetime
-    issuedDate DATETIME NULL,
-    -- issued date represented as CrossRef date
-    issuedString VARCHAR(10) NULL,
-    redepositedDate DATETIME NULL,
-    firstDepositedDate DATETIME NULL,
-    resolved DATETIME NULL,
-    firstResolution VARCHAR(1024) NULL,
-    ultimateResolution VARCHAR(1024) NULL,
-    firstResolutionLog DATETIME
-);
-
 CREATE TABLE state (
     name VARCHAR(1024) NOT NULL,
     theDate DATETIME NOT NULL
@@ -35,16 +21,10 @@ CREATE TABLE types (
     arg3desc TEXT
 );
 
-CREATE TABLE doi (
-    doi VARCHAR(700) PRIMARY KEY,
-    id INTEGER AUTO_INCREMENT,
-    UNIQUE(DOI),
-    UNIQUE(ID));
-
 -- Individual events
 CREATE TABLE events (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
-    doi INT NOT NULL REFERENCES DOI(ID),
+    doi VARCHAR(700),
 
     -- number of events that this represents
     -- normally 1, but this can be an aggregate for something else
@@ -62,13 +42,15 @@ CREATE TABLE events (
 
     arg1 TEXT,
     arg2 TEXT,
-    arg3 TEXT
-);
+    arg3 TEXT);
+
+CREATE INDEX event_doi_event_source_type on events (doi, event, source, type);
+CREATE INDEX event_doi on events (doi);
 
 -- Storage of entire timeline per DOI.
 CREATE TABLE event_timelines (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
-    doi INT NOT NULL REFERENCES DOI(ID),
+    doi VARCHAR(700),
 
     -- datetime this was inserted
     inserted DATETIME NOT NULL, 
@@ -77,10 +59,10 @@ CREATE TABLE event_timelines (
     type INT NOT NULL REFERENCES types(id),
 
     -- JSON of date -> count
-    timeline MEDIUMBLOB
-);
+    timeline MEDIUMBLOB);
 
 CREATE INDEX event_timelines_doi_source_type ON event_timelines (doi, source, type);
+CREATE INDEX event_timelines_doi ON event_timelines (doi);
 
 -- Storage of entire timeline per referrer domain.
 CREATE TABLE referrer_domain_timelines (

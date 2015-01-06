@@ -25,32 +25,6 @@
                :name
                :theDate))
 
-(k/defentity olddoi
-  (k/pk :doi)
-  (k/entity-fields
-    :doi
-    :issuedDate
-    :issuedString
-    :redepositedDate
-    :firstDepositedDate
-    :resolved
-    :firstResolution
-    :ultimateResolution
-    :firstResolutionLog)
-  
-  (k/transform
-    (fn [input]
-      (when input
-        (assoc input
-          :issuedDate (coerce-sql-date (:issuedDate input))
-          :redepositedDate (coerce-sql-date (:redepositedDate input))
-          :firstDepositedDate (coerce-sql-date (:firstDepositedDate input))
-          :resolved (coerce-sql-date (:resolved input)))))))
-
-(k/defentity doi
-  (k/pk :doi)
-  (k/entity-fields :doi :id))
-
 (k/defentity sources
   (k/pk :id)
   (k/entity-fields :id :ident :name))

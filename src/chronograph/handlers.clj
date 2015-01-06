@@ -44,8 +44,10 @@
                                    (and (not= "" dois-input-file) dois-input-file)
                                    (and (not= "" dois-input-upload) dois-input-upload))
                       dois (.split dois-input "\r?\n" )
-                      results (map (fn [doi]
-                                        (when doi (export-info (d/get-doi-info doi)))) dois)
+                      results []
+                      ; TODO removed until DOI denormalization resolved
+                      ; results (map (fn [doi]
+                      ;                   (when doi (export-info (d/get-doi-info doi)))) dois)
                       results (remove nil? results)    
                       results (if (empty? results) nil results)]
                   results)))
@@ -91,12 +93,10 @@
 (defresource doi-page
   [doi-prefix doi-suffix]
   :available-media-types ["text/html"]
-  :exists? (fn [ctx] (let [doi (str doi-prefix "/" doi-suffix)
-                           doi-id (when doi (d/get-doi-id doi false))]
-            [doi-id {::doi-id doi-id ::doi doi}]))
+  :exists? (fn [ctx] (let [doi (str doi-prefix "/" doi-suffix)]
+            [doi {::doi doi}]))
   :handle-ok (fn [ctx]
                (let [doi (::doi ctx)
-                     doi-id (::doi-id ctx)
                      events (d/get-doi-events doi)
                      timelines (d/get-doi-timelines doi)
                      

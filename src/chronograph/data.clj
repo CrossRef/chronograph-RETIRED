@@ -21,54 +21,42 @@
 (defn get-source-id-by-name [source-name]
   (:id (first (k/select d/sources (k/where (= :ident source-name))))))
 
-(defn get-doi-id [doi create?]
-  (try
-  (let [retrieved (first (k/select d/doi (k/where (= :doi doi))))]
-    (if retrieved
-      (:id retrieved)
-      (when create? (let [inserted (k/insert d/doi (k/values {:doi doi}))]
-        (:GENERATED_KEY inserted)))))
-  ; Return nil on error
-  (catch Exception e (prn "EXCEPTION" e))))
-
 (defn insert-event [doi type-id source-id date overwrite cnt arg1 arg2 arg3]
-  (let [doi-id (get-doi-id doi true)]
-    (when overwrite (k/delete d/events (k/where {:doi doi-id
+    (when overwrite (k/delete d/events (k/where {:doi doi
                                                 :event (coerce/to-sql-time date)
                                                 :source source-id
                                                 :type type-id})))
     (try
-    (k/insert d/events (k/values {:doi doi-id
+    (k/insert d/events (k/values {:doi doi
                                   :type type-id
                                   :source source-id
                                   :event (coerce/to-sql-time date)
                                   :inserted (coerce/to-sql-time (t/now))
                                   :count (or cnt 1)
                                   :arg1 arg1 :arg2 arg2 :arg3 arg3}))
-    (catch Exception e (prn "EXCEPTION" e)))))
+    (catch Exception e (prn "EXCEPTION" e))))
 
 (defn insert-event-timeline
   "Insert parts of an DOI's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per DOI, source, type.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [doi type-id source-id data merge-fn]
-  (let [doi-id (get-doi-id doi true)
-        initial-row (first (k/select d/event-timelines
+  (let [initial-row (first (k/select d/event-timelines
                                      (k/where (and
-                                                (= :doi doi-id)
+                                                (= :doi doi)
                                                 (= :type type-id)
                                                 (= :source source-id)))))
         initial-row-data (or (:timeline initial-row) {})
         merged-data (merge-with merge-fn initial-row-data data)]
     (if initial-row
       (k/update d/event-timelines
-                (k/where {:doi doi-id
+                (k/where {:doi doi
                           :type type-id
                           :source source-id})
                 (k/set-fields {:timeline merged-data}))
       
       (k/insert d/event-timelines
-                (k/values {:doi doi-id
+                (k/values {:doi doi
                            :type type-id
                            :source source-id
                            :inserted (coerce/to-sql-time (t/now))
@@ -142,7 +130,7 @@
   [doi]
   (when-let [timelines (k/select
     d/event-timelines
-    (k/where {:doi (get-doi-id doi false)})
+    (k/where {:doi doi})
     (k/with d/types))]
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
@@ -279,53 +267,50 @@
 (defn run-doi-extraction-ever []
     (get-dois-updated-since nil))
 
-(defn run-doi-resolution []
-  ; TODO only run since given date
-  (let [dois (k/select d/doi (k/where (= nil :resolved)))]
-    (prn (count dois) "to resolve")
-    (doseq [doi-info dois]
+; TODO for now not being used until the DOI denorm question is resolved.
+; (defn run-doi-resolution []
+;   ; TODO only run since given date
+;   (let [dois (k/select d/doi (k/where (= nil :resolved)))]
+;     (prn (count dois) "to resolve")
+;     (doseq [doi-info dois]
       
-      (let [the-doi (:doi doi-info)
-            resolutions (get-resolutions the-doi)]
-        ; Resolutions may not work (that's the point).
-        (when resolutions
-          (let [[first-resolution ultimate-resolution] resolutions]
-            (k/update d/doi (k/where (= :doi the-doi))
-                                          (k/set-fields {:firstResolution first-resolution
-                                                         :ultimateResolution ultimate-resolution
-                                                         :resolved (coerce/to-sql-date (t/now))}))))))))
+;       (let [the-doi (:doi doi-info)
+;             resolutions (get-resolutions the-doi)]
+;         ; Resolutions may not work (that's the point).
+;         (when resolutions
+;           (let [[first-resolution ultimate-resolution] resolutions]
+;             (k/update d/doi (k/where (= :doi the-doi))
+;                                           (k/set-fields {:firstResolution first-resolution
+;                                                          :ultimateResolution ultimate-resolution
+;                                                          :resolved (coerce/to-sql-date (t/now))}))))))))
 
-(defn get-doi-info [the-doi]
-  (let [info (first (k/select d/doi (k/where (= :doi the-doi))))]
-  info))
+; (defn get-doi-info [the-doi]
+;   (let [info (first (k/select d/doi (k/where (= :doi the-doi))))]
+;   info))
 
 (defn get-doi-facts
   "Get 'facts' (i.e. non-time-based events)"
-  [the-doi]
-  (when-let [doi (first (k/select d/doi (k/where (= :doi the-doi))))]
-    (let [doi-id (:id doi)
-          events (k/select d/events 
-                 (k/with d/sources)
-                 (k/with d/types)
-                 (k/where (and (= :event nil) (= :doi doi-id)))
-                 
-                 (k/fields [:sources.name :source-name]
-                            [:types.name :type-name]))]
-  events)))
+  [doi]
+  (let [events (k/select d/events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (= :event nil) (= :doi doi)))
+               
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+events))
 
 (defn get-doi-events 
   "Get 'events' (i.e. events with a date stamp)"
-  [the-doi]
-  (when-let [doi (first (k/select d/doi (k/where (= :doi the-doi))))]
-    (let [doi-id (:id doi)
-          events (k/select d/events 
-                 (k/with d/sources)
-                 (k/with d/types)
-                 (k/where (and (not= :event nil) (= :doi doi-id)))
-                 (k/order :events.event)
-                 (k/fields [:sources.name :source-name]
-                            [:types.name :type-name]))]
-      events)))
+  [doi]
+  (let [events (k/select d/events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (not= :event nil) (= :doi doi)))
+               (k/order :events.event)
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+    events))
 
 (defn get-domain-events
   "Get domain 'events' (i.e. events with a date stamp)"

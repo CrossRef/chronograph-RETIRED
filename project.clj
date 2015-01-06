@@ -20,7 +20,7 @@
                   [robert/bruce "0.7.1"]
                   [selmer "0.7.7"]]
   :plugins [[lein-ring "0.8.13"]]
-  :global-vars {*warn-on-reflection* true}
+  ; :global-vars {*warn-on-reflection* true}
   :ring {:handler chronograph.handlers/app}
   :main ^:skip-aot chronograph.main
   :target-path "target/%s"
