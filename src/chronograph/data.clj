@@ -254,7 +254,7 @@
                   updatedInput (-> item :deposited :date-parts first)
                   updated (apply crdate/crossref-date updatedInput)
                   updatedDate (coerce/to-sql-date (crdate/as-date updated))]
-              (insert-event the-doi issued-type-id metadata-source-id date true 1 issuedString nil nil)
+              (insert-event the-doi issued-type-id metadata-source-id issuedDate true 1 issuedString nil nil)
               (insert-event the-doi updated-type-id metadata-source-id updatedDate true 1 nil nil nil))))
         (prn "Next"))))
 
