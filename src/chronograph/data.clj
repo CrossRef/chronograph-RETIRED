@@ -21,19 +21,11 @@
 (defn get-source-id-by-name [source-name]
   (:id (first (k/select d/sources (k/where (= :ident source-name))))))
 
-(defn insert-event [doi type-id source-id date overwrite cnt arg1 arg2 arg3]
-    (when overwrite (k/delete d/events (k/where {:doi doi
-                                                :event (coerce/to-sql-time date)
-                                                :source source-id
-                                                :type type-id})))
-    (try
-    (k/insert d/events (k/values {:doi doi
-                                  :type type-id
-                                  :source source-id
-                                  :event (coerce/to-sql-time date)
-                                  :inserted (coerce/to-sql-time (t/now))
-                                  :count (or cnt 1)
-                                  :arg1 arg1 :arg2 arg2 :arg3 arg3}))
+(defn insert-event [doi type-id source-id date cnt arg1 arg2 arg3]
+  (try
+    (k/exec-raw ["INSERT INTO events (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?"
+                 [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
+                  (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
     (catch Exception e (prn "EXCEPTION" e))))
 
 (defn insert-event-timeline
@@ -220,8 +212,10 @@
       (doseq [page-query page-queries]
         (prn "Fetching" page-query)
         (let [response (try-try-again #(client/get page-query {:as :json}))
-              items (-> response :body :message :items)]
-          (prn "Fetched")
+              items (-> response :body :message :items)
+              ]
+          (prn "Fetched" (t/now))
+          
           (doseq [item items]
             (let [the-doi (:DOI item)
                   ; list of date parts in CrossRef date format
@@ -242,9 +236,9 @@
                   updatedInput (-> item :deposited :date-parts first)
                   updated (apply crdate/crossref-date updatedInput)
                   updatedDate (coerce/to-sql-date (crdate/as-date updated))]
-              (insert-event the-doi issued-type-id metadata-source-id issuedDate true 1 issuedString nil nil)
-              (insert-event the-doi updated-type-id metadata-source-id updatedDate true 1 nil nil nil))))
-        (prn "Next"))))
+              (insert-event the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil)
+              (insert-event the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil))))
+        (prn "Next" (t/now)))))
 
 (defn get-resolutions
   "Get the first and last redirects or nil if it doesn't exist."

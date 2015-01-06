@@ -42,9 +42,12 @@ CREATE TABLE events (
 
     arg1 TEXT,
     arg2 TEXT,
-    arg3 TEXT);
+    arg3 TEXT,
 
-CREATE INDEX event_doi_event_source_type on events (doi, event, source, type);
+    UNIQUE(doi, source, type)
+    );
+
+CREATE INDEX event_doi_source_type on events (doi, source, type);
 CREATE INDEX event_doi on events (doi);
 
 -- Storage of entire timeline per DOI.
