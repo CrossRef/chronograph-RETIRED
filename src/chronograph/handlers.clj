@@ -91,13 +91,10 @@
                (ring-response (redirect (str "/dois/" (::doi ctx))))))
 
 (defresource doi-page
-  [doi-prefix doi-suffix]
+  [doi]
   :available-media-types ["text/html"]
-  :exists? (fn [ctx] (let [doi (str doi-prefix "/" doi-suffix)]
-            [doi {::doi doi}]))
   :handle-ok (fn [ctx]
-               (let [doi (::doi ctx)
-                     events (d/get-doi-events doi)
+               (let [events (d/get-doi-events doi)
                      timelines (d/get-doi-timelines doi)
                      
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
@@ -231,7 +228,7 @@
   (GET "/" [] (home))
   (context "/dois" []
     (GET "/" [] (dois-redirect))
-    (context ["/:doi-prefix/:doi-suffix" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-page doi-prefix doi-suffix)))
+    (ANY "/*" {{doi :*} :params} (doi-page doi)))
   (context "/domains" []
     (GET "/" [] (domains-redirect))
     (context ["/:domain" :domain #".+?"] [domain] (domain-page domain)))
@@ -245,8 +242,7 @@
       (context ["/:doi-prefix/:doi-suffix/facts" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-facts doi-prefix doi-suffix))
       (context ["/:doi-prefix/:doi-suffix/events" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-events doi-prefix doi-suffix))))
   
-  (route/resources "/")
-  )
+  (route/resources "/"))
 
 (def app
   (-> app-routes
