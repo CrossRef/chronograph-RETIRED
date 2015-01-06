@@ -13,7 +13,17 @@
       The data here is only a small demo sample. Do not use this data for anything yet. 
     </div>
 
-    <p>Lots of things can happen to a DOI during its lifetime, including the publication date, the date the DOI was first clicked, the date the DOI was registered. The DOI Chronograph tries to capture some of it.</p>
+    <p class="lead">Lots of things can happen to a DOI at the start of its lifetime. The DOI Chronograph tries to capture some of it.</p>
+    <p>Currently being collected, in progress, or planned:
+    <ul>
+    <li>date publication was issued according to publisher</li>
+    <li>first time a publisher deposited metadata to CrossRef (both in the <a href="https://github.com/CrossRef/util#date">CrossRef schema format</a> and a real ISO date)</li>
+    <li>most recent time a publisher deposited metadata to CrossRef</li>
+    <li>date the DOI was first clicked / resolved (by a human or otherwise)</li>
+    <li>date on which it was first possible to follow the DOI</li>
+    <li>URL the DOI resolved (both initial redirect and ultimate redirect) to the first time it was possible to follow it</li>
+    </ul>
+
     <p>This project is in its early stages, and still collecting data. Contact jwass@crossref.org for information.</p>  
 
     <h2>DOIs</h2>
@@ -61,6 +71,13 @@
       </div>
     </form>
   </div>
+
+  <h3>Interesting DOIs</h3>
+  <ul>
+  {% for doi in interesting-dois %}
+    <li><a href="/dois/{{doi}}">{{doi}}</a></li>
+  {% endfor %}
+  </ul>
 </div>
 
 {% endblock %}
