@@ -4,7 +4,8 @@
   (:require [aws.sdk.s3 :as s3])
   (:require [crossref.util.config :refer [config]])
   (:require [clj-time.format :as format])
-  (:require [robert.bruce :refer [try-try-again]]))
+  (:require [robert.bruce :refer [try-try-again]])
+  (:require [clojure.core.async :as async :refer [>! >!! go]]))
 
 (def cred {:access-key (:aws-key config) :secret-key (:aws-secret config) :endpoint "s3-us-west-2.amazonaws.com"})
 
@@ -175,6 +176,7 @@
 
 (defn insert-grouped-event-from-local-type
   [base type-name-s3 type-name source-name f]
+  ; (go
   (prn "Insert" type-name "from" base)
   (let [directory (clojure.java.io/file (str base "/" type-name-s3 "/"))  
         type-id (data/get-type-id-by-name type-name)
@@ -196,14 +198,13 @@
         partitions (partition-by first parsed)]
     
     ; Iterate over all 'parts' for this type.
+    
     (doseq [partit partitions]
+    
       (let [doi (first (first partit))
             timeline (apply merge (map (fn [[doi date cnt _ _ _]] {date cnt}) partit))]
-        (try
-          ; SQL exception will be logged. 
-          (data/insert-event-timeline doi type-id source-id timeline (fn [old nw] nw))
-          (catch Exception _))))))
-
+            (>!! data/event-timeline-chan [doi type-id source-id timeline (fn [old nw] nw)])
+          ))))
 
 (defn insert-grouped-domain-event-from-local-type
   [base type-name-s3 type-name source-name f]

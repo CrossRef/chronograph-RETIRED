@@ -9,7 +9,9 @@
             [clj-time.periodic :as time-period])
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
-  (:require [robert.bruce :refer [try-try-again]]))
+  (:require [robert.bruce :refer [try-try-again]])
+  (:require [clojure.core.async :as async :refer [<! <!! go chan]])
+  )
 
 (def works-endpoint "http://api.crossref.org/v1/works")
 (def api-page-size 1000)
@@ -28,31 +30,59 @@
                   (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
     (catch Exception e (prn "EXCEPTION" e))))
 
+; Channel for queueing timeline updates.
+(def event-timeline-chan (chan))
+
 (defn insert-event-timeline
   "Insert parts of an DOI's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per DOI, source, type.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [doi type-id source-id data merge-fn]
-  (let [initial-row (first (k/select d/event-timelines
-                                     (k/where (and
-                                                (= :doi doi)
-                                                (= :type type-id)
-                                                (= :source source-id)))))
-        initial-row-data (or (:timeline initial-row) {})
-        merged-data (merge-with merge-fn initial-row-data data)]
-    (if initial-row
-      (k/update d/event-timelines
-                (k/where {:doi doi
-                          :type type-id
-                          :source source-id})
-                (k/set-fields {:timeline merged-data}))
-      
-      (k/insert d/event-timelines
-                (k/values {:doi doi
-                           :type type-id
-                           :source source-id
-                           :inserted (coerce/to-sql-time (t/now))
-                           :timeline merged-data})))))
+  (try 
+    (let [initial-row (first (k/select d/event-timelines
+                                       (k/where (and
+                                                  (= :doi doi)
+                                                  (= :type type-id)
+                                                  (= :source source-id)))))
+          initial-row-data (or (:timeline initial-row) {})
+          merged-data (merge-with merge-fn initial-row-data data)]
+      (if initial-row
+        (k/update d/event-timelines
+                  (k/where {:doi doi
+                            :type type-id
+                            :source source-id})
+                  (k/set-fields {:timeline merged-data}))
+        
+        (k/insert d/event-timelines
+                  (k/values {:doi doi
+                             :type type-id
+                             :source source-id
+                             :inserted (coerce/to-sql-time (t/now))
+                             :timeline merged-data}))))
+    ; SQL exception will be logged at console.
+    (catch Exception _)))
+
+; Four handlers to take work from the channel.
+; When this is being used as the Laskuri input, the input format (partitioned by DOI) ensures that we're not going to have concurrency problems.
+(go
+  (while true
+    (let [row (<!! event-timeline-chan)]
+      (apply insert-event-timeline row))))
+
+(go
+  (while true
+    (let [row (<!! event-timeline-chan)]
+      (apply insert-event-timeline row))))
+
+(go
+  (while true
+    (let [row (<!! event-timeline-chan)]
+      (apply insert-event-timeline row))))
+
+(go
+  (while true
+    (let [row (<!! event-timeline-chan)]
+      (apply insert-event-timeline row))))
 
 (defn insert-domain-timeline
   "Insert parts of a Referrer Domain's event timeline. This will merge the existing data.
@@ -236,8 +266,9 @@
                   updatedInput (-> item :deposited :date-parts first)
                   updated (apply crdate/crossref-date updatedInput)
                   updatedDate (coerce/to-sql-date (crdate/as-date updated))]
-              (insert-event the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil)
-              (insert-event the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil))))
+              ; Insert in background, will take less time than the API fetch.
+              (go (insert-event the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil))
+              (go (insert-event the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil)))))
         (prn "Next" (t/now)))))
 
 (defn get-resolutions

@@ -18,7 +18,8 @@
                   [ring "1.3.2"]
                   [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
                   [robert/bruce "0.7.1"]
-                  [selmer "0.7.7"]]
+                  [selmer "0.7.7"]
+                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]
   :plugins [[lein-ring "0.8.13"]]
   ; :global-vars {*warn-on-reflection* true}
   :ring {:handler chronograph.handlers/app}
