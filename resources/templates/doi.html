@@ -7,31 +7,34 @@
     <h1>DOI: {{doi}}</h1>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
 
+    <h2>Milestones and facts</h2>
+    <table class="table table-striped">
     {% for fact in facts %}
-    <h3>{{fact.type-name}} {{fact.count}}</h3>
-    From {{fact.source-name}}
-    <ul>
-    {% if event.arg1 %}<li>{{fact.arg1desc}}: {{fact.arg1}}</li>{% endif %}
-    {% if event.arg2 %}<li>{{fact.arg2desc}}: {{fact.arg2}}</li>{% endif %}
-    {% if event.arg3 %}<li>{{fact.arg3desc}}: {{fact.arg3}}</li>{% endif %}
-    </ul>
+    <tr>
+        <td>{{fact.type-name}}</td>
+        <td>{{fact.count}}</td>
+        <td>From {{fact.source-name}}</td>
+        <td>{% if fact.arg1 %}{{fact.arg1desc}}: {{fact.arg1}} {% endif %}</td>
+        <td>{% if fact.arg2 %}{{fact.arg2desc}}: {{fact.arg2}} {% endif %}</td>
+        <td>{% if fact.arg3 %}{{fact.arg3desc}}: {{fact.arg3}} {% endif %}</td>
+        </tr>
     {% endfor %}
-
-    <h2>Milestones</h2>
+    
     {% for event in milestone-events %}
-    <h3>{{event.type-name}}: {{event.event|date:"YYYY-MM-dd"}}</h3>
-    {% if any event.arg1 event.arg2 event.arg3 %}
-    <ul>
-    {% if event.arg1 %}<li>{{event.arg1desc}}: {{event.arg1}}</li>{% endif %}
-    {% if event.arg2 %}<li>{{event.arg2desc}}: {{event.arg2}}</li>{% endif %}
-    {% if event.arg3 %}<li>{{event.arg3desc}}: {{event.arg3}}</li>{% endif %}
-    </ul>
-    {% endif %}
-    <span>From {{event.source-name}}</span>
+    <tr>
+        <td>{{event.type-name}}</td>
+        <td>{{event.event|date:"YYYY-MM-dd"}}</td>
+        <td>From {{event.source-name}}</td>
+        <td>{% if event.arg1 %}{{event.arg1desc}}: {{event.arg1}} {% endif %}</td>
+        <td>{% if event.arg2 %}{{event.arg2desc}}: {{event.arg2}} {% endif %}</td>
+        <td>{% if event.arg3 %}{{event.arg3desc}}: {{event.arg3}} {% endif %}</td>
+    </tr>
     {% endfor %}
-  
+    </table>
+
+    
     {% if first-date last-date %}
-    <h1>Charts</h1>
+    <h2>Charts</h2>
     <script>
     var milestoneMarkers = [
     {% for event in milestone-events %}

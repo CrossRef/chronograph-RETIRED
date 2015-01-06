@@ -97,9 +97,7 @@
   :handle-ok (fn [ctx]
                (let [doi (::doi ctx)
                      doi-id (::doi-id ctx)
-                     ; TODO moving away from events table.
-                     ; events (d/get-doi-events doi)
-                     events []
+                     events (d/get-doi-events doi)
                      timelines (d/get-doi-timelines doi)
                      
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
@@ -200,7 +198,6 @@
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
                (let [events (d/get-subdomain-events subdomain)
-                     ; events [] ; TODO currently replacing events with timelines
                      timelines (d/get-subdomain-timelines subdomain)
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
                      
