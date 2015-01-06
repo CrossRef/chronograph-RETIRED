@@ -148,13 +148,11 @@
   [domain]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [events (d/get-domain-events domain)
-                     ; events [] ; TODO currently replacing events with timelines
+               (let [;events (d/get-domain-events domain)
+                     events [] ; TODO currently replacing events with timelines
                      timelines (d/get-domain-timelines domain)
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
-                     
-                     
-                                          
+                                       
                      events-by-type (group-by :type-name events)
                      
                      all-dates (concat timeline-dates (map :event events))
@@ -194,7 +192,8 @@
   [subdomain]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [events (d/get-subdomain-events subdomain)
+               (let [;events (d/get-subdomain-events subdomain)
+                     events []
                      timelines (d/get-subdomain-timelines subdomain)
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
                      

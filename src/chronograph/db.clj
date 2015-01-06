@@ -138,7 +138,6 @@
   (k/entity-fields
     :event
     :count
-    :host
     :domain
     :source
     :type)
@@ -155,7 +154,6 @@
   (k/entity-fields
     :event
     :count
-    :host
     :domain
     :source
     :type)

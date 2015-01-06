@@ -337,29 +337,29 @@ events))
                           [:types.name :type-name]))]
     events))
 
-(defn get-domain-events
-  "Get domain 'events' (i.e. events with a date stamp)"
-  [host]
-  (let [events (k/select d/referrer-domain-events 
-               (k/with d/sources)
-               (k/with d/types)
-               (k/where (and (not= :event nil) (= :host host)))
-               (k/order :referrer_domain_events.event)
-               (k/fields [:sources.name :source-name]
-                          [:types.name :type-name]))]
-    events))
+; (defn get-domain-events
+;   "Get domain 'events' (i.e. events with a date stamp)"
+;   [host]
+;   (let [events (k/select d/referrer-domain-events 
+;                (k/with d/sources)
+;                (k/with d/types)
+;                (k/where (and (not= :event nil) (= :host host)))
+;                (k/order :referrer_domain_events.event)
+;                (k/fields [:sources.name :source-name]
+;                           [:types.name :type-name]))]
+;     events))
 
-(defn get-subdomain-events
-  "Get subdomain 'events' (i.e. events with a date stamp)"
-  [host]
-  (let [events (k/select d/referrer-subdomain-events 
-               (k/with d/sources)
-               (k/with d/types)
-               (k/where (and (not= :event nil) (= :host host)))
-               (k/order :referrer_subdomain_events.event)
-               (k/fields [:sources.name :source-name]
-                          [:types.name :type-name]))]
-    events))
+; (defn get-subdomain-events
+;   "Get subdomain 'events' (i.e. events with a date stamp)"
+;   [host]
+;   (let [events (k/select d/referrer-subdomain-events 
+;                (k/with d/sources)
+;                (k/with d/types)
+;                (k/where (and (not= :event nil) (= :host host)))
+;                (k/order :referrer_subdomain_events.event)
+;                (k/fields [:sources.name :source-name]
+;                           [:types.name :type-name]))]
+;     events))
 
 (defn set-first-resolution-log [the-doi date]
   (k/exec-raw ["insert into doi (doi, firstResolutionLog) values (?, ?) on duplicate key update firstResolutionLog = ?"
