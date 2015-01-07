@@ -227,7 +227,7 @@
   (let [base-q (if date 
           {:filter (str "from-update-date:" (unparse yyyy-mm-dd date))}
           {})
-        results (try-try-again #(client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json}))
+        results (try-try-again {:sleep 5000 :tries :unlimited} #(client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json}))
         num-results (-> results :body :message :total-results)
         ; Extra page just in case.
         num-pages (+ (quot num-results api-page-size) 2)
@@ -241,7 +241,7 @@
     
       (doseq [page-query page-queries]
         (prn "Fetching" page-query)
-        (let [response (try-try-again #(client/get page-query {:as :json}))
+        (let [response (try-try-again {:sleep 5000 :tries :unlimited} #(client/get page-query {:as :json}))
               items (-> response :body :message :items)
               ]
           (prn "Fetched" (t/now))
@@ -275,7 +275,7 @@
   "Get the first and last redirects or nil if it doesn't exist."
   [the-doi]
   (let [url (crdoi/normalise-doi the-doi)
-        result (try-try-again #(client/get url {:follow-redirects true :throw-exceptions false}))
+        result (try-try-again {:sleep 5000 :tries :unlimited} #(client/get url {:follow-redirects true :throw-exceptions false}))
         redirects (:trace-redirects result)
         first-redirect (second redirects)
         last-redirect (last redirects)
