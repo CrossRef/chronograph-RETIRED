@@ -22,7 +22,7 @@
                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]]
   :plugins [[lein-ring "0.8.13"]]
   ; :global-vars {*warn-on-reflection* true}
-  :ring {:handler chronograph.handlers/app}
+  :ring {:handler chronograph.handlers/app :auto-reload? true}
   :main ^:skip-aot chronograph.main
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC"]

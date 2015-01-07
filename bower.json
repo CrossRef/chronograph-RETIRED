@@ -1,0 +1,18 @@
+{
+  "name": "chronograph",
+  "version": "1.0.0",
+  "ignore": [
+    ".jshintrc",
+    "**/*.txt"
+  ],
+  "dependencies": {
+    "metrics-graphics": "1.1.0",
+    "fontawesome": "4.2.0",
+    "bootstrap-additions": "0.2.3",
+    "html5shiv": "3.7.2",
+    "respond": "1.4.2",
+    "bootstrap": "3.3.1",
+    "rickshaw": "v1.5.1",
+    "jquery-ui": "1.11.2" 
+  }
+}
