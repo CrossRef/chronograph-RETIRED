@@ -267,7 +267,11 @@
                   updated (apply crdate/crossref-date updatedInput)
                   updatedDate (coerce/to-sql-date (crdate/as-date updated))]
               ; Insert in background, will take less time than the API fetch.
-              (go (insert-event the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil))
+              
+              ; Some issue dates are missing. Don't insert.
+              (when issued-input-ok
+                (go (insert-event the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil)))
+              
               (go (insert-event the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil)))))
         (prn "Next" (t/now)))))
 
