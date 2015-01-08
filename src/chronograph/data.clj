@@ -1,5 +1,6 @@
 (ns chronograph.data
-  (:require [chronograph.db :as d])
+  (:require [chronograph.db :as d]
+            [chronograph.core :as core])
   (:require [clj-http.client :as client])
   (:require [crossref.util.config :refer [config]]
             [crossref.util.date :as crdate]
@@ -10,12 +11,11 @@
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
   (:require [robert.bruce :refer [try-try-again]])
-  (:require [clojure.core.async :as async :refer [<! <!! go chan]])
-  )
+  (:require [clojure.core.async :as async :refer [<! <!! go chan]]))
 
+; TODO REMOVE
 (def works-endpoint "http://api.crossref.org/v1/works")
 (def api-page-size 1000)
-(def yyyy-mm-dd (formatter (t/default-time-zone) "yyyy-MM-dd" "yyyy-MM-dd"))
 
 (defn get-type-id-by-name [type-name]
   (:id (first (k/select d/types (k/where (= :ident type-name))))))
@@ -223,58 +223,6 @@
   (k/delete d/state (k/where (= :name "last-run")))
   (k/insert d/state (k/values {:name "last-run" :theDate (coerce/to-sql-date date)})))
 
-(defn get-dois-updated-since [date]
-  (let [base-q (if date 
-          {:filter (str "from-update-date:" (unparse yyyy-mm-dd date))}
-          {})
-        results (try-try-again {:sleep 5000 :tries :unlimited} #(client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json}))
-        num-results (-> results :body :message :total-results)
-        ; Extra page just in case.
-        num-pages (+ (quot num-results api-page-size) 2)
-        page-queries (map #(str works-endpoint \? (client/generate-query-string (assoc base-q
-                                                                                  :rows api-page-size
-                                                                                  :offset (* api-page-size %)))) (range num-pages))
-        
-        issued-type-id (get-type-id-by-name "issued")
-                  updated-type-id (get-type-id-by-name "updated")
-                  metadata-source-id (get-source-id-by-name "CrossRefMetadata")]
-    
-      (doseq [page-query page-queries]
-        (prn "Fetching" page-query)
-        (let [response (try-try-again {:sleep 5000 :tries :unlimited} #(client/get page-query {:as :json}))
-              items (-> response :body :message :items)
-              ]
-          (prn "Fetched" (t/now))
-          
-          (doseq [item items]
-            (let [the-doi (:DOI item)
-                  ; list of date parts in CrossRef date format
-                  issued-input (-> item :issued :date-parts first)
-                  ; CrossRef date native format
-                  ; Issued may be missing, e.g. 10.1109/lcomm.2012.030912.11193
-                  ; Or may be a single null in a vector.
-                  issued-input-ok (and (not-empty issued-input) (every? number? issued-input))
-                  
-                  issued (when issued-input-ok (apply crdate/crossref-date issued-input))
-                  ; Nominal, but potentially lossily converted format.
-                  ; Coerce will work with the the DateTimeProtocol
-                  issuedDate (when issued-input-ok (coerce/to-sql-date (crdate/as-date issued)))
-                  ; Non-lossy, but string representation of date.
-                  issuedString (str issued)
-                  
-                  ; updated
-                  updatedInput (-> item :deposited :date-parts first)
-                  updated (apply crdate/crossref-date updatedInput)
-                  updatedDate (coerce/to-sql-date (crdate/as-date updated))]
-              ; Insert in background, will take less time than the API fetch.
-              
-              ; Some issue dates are missing. Don't insert.
-              (when issued-input-ok
-                (go (insert-event the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil)))
-              
-              (go (insert-event the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil)))))
-        (prn "Next" (t/now)))))
-
 (defn get-resolutions
   "Get the first and last redirects or nil if it doesn't exist."
   [the-doi]
@@ -287,14 +235,6 @@
         (when ok
           [first-redirect last-redirect])))
   
-(defn run-doi-extraction-new-updates []
-  (let [last-run-date (get-last-run-date)
-        now (t/now)]
-    (get-dois-updated-since last-run-date)    
-    (set-last-run-date! now)))
-
-(defn run-doi-extraction-ever []
-    (get-dois-updated-since nil))
 
 ; TODO for now not being used until the DOI denorm question is resolved.
 ; (defn run-doi-resolution []
@@ -410,7 +350,7 @@ events))
       subdomains)))
 
 (defn time-range
-  "Return a lazy sequence of DateTime's from start to end, incremented
+  "Return a lazy sequence of DateTimes from start to end, incremented
   by 'step' units of time."
   [start end step]
   (let [inf-range (time-period/periodic-seq start step)

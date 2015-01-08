@@ -1,5 +1,6 @@
 (ns chronograph.main
-  (:require [chronograph.data :as d])
+  (:require [chronograph.data :as d]
+            [chronograph.mdapi :as mdapi])
   (:require [chronograph.import.laskuri :as laskuri])
   (:require [clojure.java.io :refer [reader]])
   (:require [clojure.edn :as edn])
@@ -18,11 +19,11 @@
   
   (when (= (first args) "import-ever")
       (prn "DOI import everything ever")
-      (d/run-doi-extraction-ever))
+      (mdapi/get-num-dois-updated-since-async nil))
   
   (when (= (first args) "new-updates")
       (prn "DOI import new updates")
-      (d/run-doi-extraction-new-updates))
+      (mdapi/run-doi-extraction-new-updates))
   
   ; (when (= (first args) "resolve")
   ;     (prn "DOI Resolution")
