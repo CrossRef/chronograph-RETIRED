@@ -9,11 +9,19 @@
 
     <h2>Milestones and facts</h2>
     <table class="table table-striped">
+    <thead>
+    <tr>
+        <th>type</th>
+        <th>date / count</th>
+        <th>from</th>
+        <th colspan=3>extra info</th>
+    </tr>
+    </thead>
     {% for fact in facts %}
     <tr>
         <td>{{fact.type-name}}</td>
         <td>{{fact.count}}</td>
-        <td>From {{fact.source-name}}</td>
+        <td>{{fact.source-name}}</td>
         <td>{% if fact.arg1 %}{{fact.arg1desc}}: {{fact.arg1}} {% endif %}</td>
         <td>{% if fact.arg2 %}{{fact.arg2desc}}: {{fact.arg2}} {% endif %}</td>
         <td>{% if fact.arg3 %}{{fact.arg3desc}}: {{fact.arg3}} {% endif %}</td>
@@ -24,7 +32,7 @@
     <tr>
         <td>{{event.type-name}}</td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>From {{event.source-name}}</td>
+        <td>{{event.source-name}}</td>
         <td>{% if event.arg1 %}{{event.arg1desc}}: {{event.arg1}} {% endif %}</td>
         <td>{% if event.arg2 %}{{event.arg2desc}}: {{event.arg2}} {% endif %}</td>
         <td>{% if event.arg3 %}{{event.arg3desc}}: {{event.arg3}} {% endif %}</td>
