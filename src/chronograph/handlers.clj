@@ -172,7 +172,10 @@
                      last-date (when all-dates-sorted (last all-dates-sorted))
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     
+                                          timelines-with-extras (map #(assoc % :min (apply min (map second (:timeline %)))
+                                                                               :max (apply max (map second (:timeline %))))
+                                                                               interpolated-timelines)
+
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
@@ -189,7 +192,7 @@
                                      :milestone-events-by-type milestone-events-by-type
                                      :facts facts
                                      :facts-by-type facts-by-type
-                                     :timelines interpolated-timelines
+                                     :timelines timelines-with-extras
                                      }]
                (render-file "templates/doi.html" render-context))))
 
@@ -218,7 +221,7 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     
+
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
@@ -262,7 +265,7 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     
+                                         
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
