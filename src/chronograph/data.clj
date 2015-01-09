@@ -14,9 +14,6 @@
   (:require [robert.bruce :refer [try-try-again]])
   (:require [clojure.core.async :as async :refer [<! <!! go chan]]))
 
-; TODO REMOVE
-(def works-endpoint "http://api.crossref.org/v1/works")
-(def api-page-size 1000)
 
 (defn get-type-id-by-name [type-name]
   (:id (first (k/select d/types (k/where {:ident type-name})))))
@@ -44,6 +41,14 @@
                  [host domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
                   (coerce/to-sql-time date) (or cnt 1)]])
     (catch Exception e (prn "EXCEPTION" e))))
+
+(defn insert-events-chunk
+  "Insert chunk of inputs to insert-event"
+  [chunk]
+  (kdb/transaction
+    (prn "chunk insert-doi-resolutions-count")
+    (doseq [args chunk]
+      (apply insert-event args))))
 
 (defn insert-doi-resolutions-count
   [chunk type-id source-id]
@@ -77,8 +82,6 @@
   [chunk]
   (kdb/transaction
     (doseq [[date top-domains] chunk]
-      (prn "DATE" date)
-      (prn "TOP DOMAINS" top-domains)
       (k/delete d/top-domains (k/where {:month (coerce/to-sql-date date)}))
       (k/insert d/top-domains (k/values {:month (coerce/to-sql-date date) :domains top-domains})))))
 
@@ -139,7 +142,7 @@
   "Insert chunk of event timelines in a transaction."
   [chunk type-id source-id]
   (kdb/transaction
-    (prn "insert-event-timelines" chunk)
+    (prn "insert-event-timelines")
     (doseq [[doi timeline] chunk]
       (insert-event-timeline doi type-id source-id timeline #(max %1 %2)))))
 

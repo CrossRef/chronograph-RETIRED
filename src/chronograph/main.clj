@@ -11,7 +11,7 @@
     
   (when (= (first args) "import-ever")
       (prn "DOI import everything ever")
-      (mdapi/get-num-dois-updated-since-async nil))
+      (mdapi/get-dois-updated-since nil))
   
   (when (= (first args) "new-updates")
       (prn "DOI import new updates")
@@ -21,9 +21,6 @@
   ;     (prn "DOI Resolution")
   ;     (d/run-doi-resolution))
   
-  
   (when (= (first args) "import-laskuri")
     (prn "Import local Laskuri data grouped by DOI")
-    (laskuri/run-local-grouped (second args)))
-
- )  
+    (laskuri/run-local-grouped (second args))))  
