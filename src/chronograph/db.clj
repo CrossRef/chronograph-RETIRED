@@ -165,3 +165,21 @@
         (assoc input
           :event (when-let [d (:event input)] (coerce-sql-date d)))))))
 
+
+(k/defentity top-domains
+  (k/table "top_domains")
+  (k/pk :id)
+  (k/entity-fields
+    :id
+    :domains
+    :month)
+  (k/prepare
+    (fn [input]
+      (when input
+        (assoc input
+          :domains (when-let [d (:domains input)] (pr-str d))))))
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :domains (when-let [d (:domains input)] (edn/read (java.io.PushbackReader. (reader d)))))))))

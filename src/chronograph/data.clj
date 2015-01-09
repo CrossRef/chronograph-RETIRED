@@ -5,7 +5,8 @@
   (:require [crossref.util.config :refer [config]]
             [crossref.util.date :as crdate]
             [crossref.util.doi :as crdoi])
-  (:require [korma.core :as k])
+  (:require [korma.core :as k]
+            [korma.db :as kdb])
   (:require [clj-time.core :as t]
             [clj-time.periodic :as time-period])
   (:require [clj-time.coerce :as coerce]
@@ -18,10 +19,10 @@
 (def api-page-size 1000)
 
 (defn get-type-id-by-name [type-name]
-  (:id (first (k/select d/types (k/where (= :ident type-name))))))
+  (:id (first (k/select d/types (k/where {:ident type-name})))))
 
 (defn get-source-id-by-name [source-name]
-  (:id (first (k/select d/sources (k/where (= :ident source-name))))))
+  (:id (first (k/select d/sources (k/where {:ident source-name})))))
 
 (defn insert-event [doi type-id source-id date cnt arg1 arg2 arg3]
   (try
@@ -29,6 +30,57 @@
                  [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
                   (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
     (catch Exception e (prn "EXCEPTION" e))))
+
+(defn insert-domain-event [domain type-id source-id date cnt]
+  (try
+    (k/exec-raw ["INSERT INTO referrer_domain_events (domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
+                 [domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
+                  (coerce/to-sql-time date) (or cnt 1)]])
+    (catch Exception e (prn "EXCEPTION" e))))
+
+(defn insert-subdomain-event [host domain type-id source-id date cnt]
+  (try
+    (k/exec-raw ["INSERT INTO referrer_subdomain_events (subdomain, domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
+                 [host domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
+                  (coerce/to-sql-time date) (or cnt 1)]])
+    (catch Exception e (prn "EXCEPTION" e))))
+
+(defn insert-doi-resolutions-count
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-doi-resolutions-count")
+    (doseq [[doi cnt] chunk]
+      (insert-event doi type-id source-id nil cnt nil nil nil))))
+
+(defn insert-doi-first-resolution
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-doi-first-resolution")
+    (doseq [[doi date] chunk]
+      (insert-event doi type-id source-id date nil nil nil nil))))
+
+(defn insert-domain-count
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-domain-count")
+    (doseq [[domain cnt] chunk]
+      (insert-domain-event domain type-id source-id nil cnt))))
+
+(defn insert-subdomain-count
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-domain-count")
+    (doseq [[host domain cnt] chunk]
+      (insert-subdomain-event host domain type-id source-id nil cnt))))
+
+(defn insert-month-top-domains
+  [chunk]
+  (kdb/transaction
+    (doseq [[date top-domains] chunk]
+      (prn "DATE" date)
+      (prn "TOP DOMAINS" top-domains)
+      (k/delete d/top-domains (k/where {:month (coerce/to-sql-date date)}))
+      (k/insert d/top-domains (k/values {:month (coerce/to-sql-date date) :domains top-domains})))))
 
 ; Channel for queueing timeline updates.
 (def event-timeline-chan (chan))
@@ -40,10 +92,9 @@
   [doi type-id source-id data merge-fn]
   (try 
     (let [initial-row (first (k/select d/event-timelines
-                                       (k/where (and
-                                                  (= :doi doi)
-                                                  (= :type type-id)
-                                                  (= :source source-id)))))
+                                       (k/where {:doi doi
+                                                 :type type-id
+                                                  :source source-id})))
           initial-row-data (or (:timeline initial-row) {})
           merged-data (merge-with merge-fn initial-row-data data)]
       (if initial-row
@@ -84,17 +135,24 @@
     (let [row (<!! event-timeline-chan)]
       (apply insert-event-timeline row))))
 
+(defn insert-event-timelines
+  "Insert chunk of event timelines in a transaction."
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "insert-event-timelines" chunk)
+    (doseq [[doi timeline] chunk]
+      (insert-event-timeline doi type-id source-id timeline #(max %1 %2)))))
+
 (defn insert-domain-timeline
   "Insert parts of a Referrer Domain's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [host domain type-id source-id data merge-fn]
   (let [initial-row (first (k/select d/referrer-domain-timelines
-                                     (k/where (and
-                                                (= :domain domain)
-                                                (= :host host)
-                                                (= :type type-id)
-                                                (= :source source-id)))))
+                                     (k/where {:domain domain
+                                                :host host
+                                                :type type-id
+                                                :source source-id})))
         initial-row-data (or (:timeline initial-row) {})
         merged-data (merge-with merge-fn initial-row-data data)]
     (if initial-row
@@ -113,17 +171,25 @@
                            :inserted (coerce/to-sql-time (t/now))
                            :timeline merged-data})))))
 
+(defn insert-domain-timelines
+  "Insert chunk of domain timelines in a transaction."
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-domain-timelines")
+    (doseq [[domain timeline] chunk]
+      ; TODO only the host (not the domain) is supplied in current data format.
+      (insert-domain-timeline domain domain type-id source-id timeline #(max %1 %2)))))
+
 (defn insert-subdomain-timeline
   "Insert parts of a Referrer Subdomain's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [host domain type-id source-id data merge-fn]
   (let [initial-row (first (k/select d/referrer-subdomain-timelines
-                                     (k/where (and
-                                                (= :domain domain)
-                                                (= :host host)
-                                                (= :type type-id)
-                                                (= :source source-id)))))
+                                     (k/where {:domain domain
+                                               :host host
+                                               :type type-id
+                                               :source source-id})))
         initial-row-data (or (:timeline initial-row) {})
         merged-data (merge-with merge-fn initial-row-data data)]
     (if initial-row
@@ -141,6 +207,15 @@
                            :source source-id
                            :inserted (coerce/to-sql-time (t/now))
                            :timeline merged-data})))))
+
+(defn insert-subdomain-timelines
+  "Insert chunk of subdomain timelines in a transaction."
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-subdomain-timelines")
+    (doseq [[host domain timeline] chunk]
+      (insert-subdomain-timeline host domain type-id source-id timeline #(max %1 %2)))))
+
 
 (defn sort-timeline-values
   "For a hashmap timeline, return as sorted list"
@@ -179,37 +254,6 @@
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
          timelines)))
-
-(defn insert-domain-event [host domain type-id source-id date overwrite cnt]
-    (when overwrite (k/delete d/referrer-domain-events (k/where {:domain domain
-                                                                :event (coerce/to-sql-time date)
-                                                                :source source-id
-                                                                :type type-id})))
-    (try
-    (k/insert d/referrer-domain-events (k/values {:host host
-                                                  :domain domain
-                                                  :type type-id
-                                                  :source source-id
-                                                  :event (coerce/to-sql-time date)
-                                                  :inserted (coerce/to-sql-time (t/now))
-                                                  :count (or cnt 1)}))
-    (catch Exception e (prn "EXCEPTION" e))))
-
-(defn insert-subdomain-event [host domain type-id source-id date overwrite cnt]
-    (when overwrite (k/delete d/referrer-domain-events (k/where {:domain domain
-                                                                 :host host
-                                                                :event (coerce/to-sql-time date)
-                                                                :source source-id
-                                                                :type type-id})))
-    (try
-    (k/insert d/referrer-subdomain-events (k/values { :host host
-                                                      :domain domain
-                                                      :type type-id
-                                                      :source source-id
-                                                      :event (coerce/to-sql-time date)
-                                                      :inserted (coerce/to-sql-time (t/now))
-                                                      :count (or cnt 1)}))
-    (catch Exception e (prn "EXCEPTION" e))))
 
 (defn get-last-run-date
   "Last date that the DOI import was run."

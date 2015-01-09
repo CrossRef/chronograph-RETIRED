@@ -132,6 +132,13 @@ create table referrer_subdomain_events (
 
 CREATE INDEX referrer_subdomain_events_type_source ON referrer_subdomain_events (event, subdomain, domain, source, type);
 
+CREATE TABLE top_domains (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    month DATETIME NOT NULL,
+    domains MEDIUMBLOB
+);
+CREATE INDEX top_domains_month on top_domains (month);
+
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");
 insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution Logs");
 insert into sources (ident, name) values ("CrossRefRobot", "CrossRef Robot");

@@ -8,15 +8,7 @@
 
 (defn -main
   [& args]
-  
-  (when (= (first args) "import-laskuri-s3")
-    (prn "Laskuri import from" (second args) (nth args 2))
-    (laskuri/run-s3 (second args) (nth args 2))) 
-  
-  (when (= (first args) "import-laskuri-local")
-    (prn "Laskuri import from" (second args))
-    (laskuri/run-local (second args))) 
-  
+    
   (when (= (first args) "import-ever")
       (prn "DOI import everything ever")
       (mdapi/get-num-dois-updated-since-async nil))
@@ -30,7 +22,7 @@
   ;     (d/run-doi-resolution))
   
   
-  (when (= (first args) "grouped-laskuri-local")
+  (when (= (first args) "import-laskuri")
     (prn "Import local Laskuri data grouped by DOI")
     (laskuri/run-local-grouped (second args)))
 
