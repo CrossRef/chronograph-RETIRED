@@ -128,7 +128,8 @@ create table referrer_subdomain_events (
    domain VARCHAR(128) NOT NULL,
    source INT NOT NULL REFERENCES sources(id) ,
    type INT NOT NULL REFERENCES types(id),
-   inserted DATETIME NOT NULL
+   inserted DATETIME NOT NULL,
+   UNIQUE(subdomain, domain, source, type)
 );
 
 CREATE INDEX referrer_subdomain_events_type_source ON referrer_subdomain_events (event, subdomain, domain, source, type);
