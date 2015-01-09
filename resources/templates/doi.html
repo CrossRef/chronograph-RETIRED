@@ -107,7 +107,7 @@
 
 {% for timeline in timelines %}
 <h3>{{timeline.name}}</h3>
-<p>Minimum: {{timeline.min}}, maximum: {{timeline.max}}.</p>
+{% if timeline.min %}<p>Minimum: {{timeline.min}}, maximum: {{timeline.max}}.</p>{%endif%}
 <div id="content">
 <div id="chart_container">
     <div id="chart_{{forloop.counter}}"></div>

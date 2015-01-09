@@ -6,78 +6,114 @@
   <div class="col-md-12">
     <h1>Domain: {{domain}}</h1>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
-  
-    <h1>Charts</h1>
 
-    {% for type, events in events-by-type %}
-    <!-- <h2>{{type}}</h2> -->
-    <div id="chart-{{forloop.counter}}"></div>
-
-    <script>
-    <!-- TODO JS escape -->
-
-    var data{{forloop.counter}} = [
-    {"date": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}"), "count": 0},
-    {% for event in events %}{"date": new Date("{{ event.event|date:"YYYY-MM-dd"}}"), "count": {{event.count}} },
-    {%endfor %}
-    {"date": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}"), "count": 0}];
-
-    // debugger
-    $(function(){
-        data_graphic({
-            title: "{{type}}",
-            data: data{{forloop.counter}},
-            width: 1140,
-            height: 200,
-            target: '#chart-{{forloop.counter}}',
-            x_accessor: 'date',
-            y_accessor: 'count',
-            min_x: new Date("{{first-date-pad|date:"YYYY-MM-dd"}}"),
-            max_x: new Date("{{last-date-pad|date:"YYYY-MM-dd"}}"),
-            // missing_is_zero: true,
-            interpolate: "step-after",
-            linked: true,
-            legend: "{{type}}",
-            chart_type: "line"
-        })
-    });
-    </script>
+    <table class="table table-striped">
+    <thead>
+    <tr>
+        <th>type</th>
+        <th>date / count</th>
+        <th>from</th>
+    </tr>
+    </thead>
+    {% for fact in facts %}
+    <tr>
+        <td>{{fact.type-name}}</td>
+        <td>{{fact.count}}</td>
+        <td>{{fact.source-name}}</td>
+        </tr>
     {% endfor %}
-
-
-
-    {% for timeline in timelines %}
-    <div id="chart-timeline-{{forloop.counter}}"></div>
+    
+    {% for event in milestone-events %}
+    <tr>
+        <td>{{event.type-name}}</td>
+        <td>{{event.event|date:"YYYY-MM-dd"}}</td>
+        <td>{{event.source-name}}</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% if first-date last-date %}
     <script>
-    <!-- TODO JS escape -->
-
-    var data_timeline_{{forloop.counter}} = [
-    
-    {% for dt, count in timeline.timeline %}{"date": new Date("{{ dt|date:"YYYY-MM-dd"}}"), "count": {{count}} } {% if not forloop.last %},{% endif %}
+    $(function(){
+        var time = new Rickshaw.Fixtures.Time();
+    {% for timeline in timelines %}
+        var data_timeline_{{forloop.counter}} = [
+    {"x": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0},
+    {% for dt, count in timeline.timeline %}{"x": new Date("{{ dt|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}} },
     {%endfor %}
-    
+    {"x": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0}
     ];
 
-    // debugger
-    $(function(){
-        data_graphic({
-            title: "{{timeline.name}}",
-            data: data_timeline_{{forloop.counter}},
-            width: 1140,
-            height: 200,
-            target: '#chart-timeline-{{forloop.counter}}',
-            x_accessor: 'date',
-            y_accessor: 'count',
-            min_x: new Date("{{first-date-pad|date:"YYYY-MM-dd"}}"),
-            max_x: new Date("{{last-date-pad|date:"YYYY-MM-dd"}}"),
-            // missing_is_zero: true,
-            interpolate: "step",
-            linked: true,
-            legend: "{{type}}"
-        })
+    var graph = new Rickshaw.Graph( {
+        element: document.getElementById("chart_{{forloop.counter}}"),
+        width: 1140,
+        height: 200,
+        title: "{{timeline.name}}",
+        interpolation: 'step-after',
+        renderer: 'area',
+        stroke: true,
+        preserve: true,
+        series: [{
+                color: 'rgba(0,0,255,0.2)',
+                stroke: 'rgba(0,0,255,0.3)',
+                name: 'count',
+                stroke_width: 30,
+                data: data_timeline_{{forloop.counter}}}]
+            });
+
+    graph.render();
+
+    var hoverDetail = new Rickshaw.Graph.HoverDetail({
+        graph: graph,
+        xFormatter: function(x) {
+            return new Date(x * 1000).toString();
+        }});
+
+    var annotator = new Rickshaw.Graph.Annotate({
+        graph: graph,
+        element: document.getElementById('timeline_{{forloop.counter}}')
     });
-    </script>
+
+    var months = time.unit('month');
+
+    var xAxis = new Rickshaw.Graph.Axis.Time({
+        graph: graph,
+        timeUnit: months});
+
+    xAxis.render();
+
+    var yAxis = new Rickshaw.Graph.Axis.Y({
+        graph: graph,
+        tickFormat: Rickshaw.Fixtures.Number.formatKMBT});
+
+    yAxis.render();
+
+    {% for event in milestone-events %}
+    annotator.add(new Date("{{event.event|date:"YYYY-MM-dd"}}").getTime() / 1000, "{{event.type-name}}");
     {% endfor %}
+    annotator.update();
+
+    // Show by default.
+    $(".annotation").click() 
+{% endfor %}
+});
+</script>
+
+{% for timeline in timelines %}
+<h3>{{timeline.name}}</h3>
+{% if timeline.min %}<p>Minimum: {{timeline.min}}, maximum: {{timeline.max}}.</p>{%endif%}
+<div id="content">
+<div id="chart_container">
+    <div id="chart_{{forloop.counter}}"></div>
+    <div id="timeline_{{forloop.counter}}"></div>
+</div>
+{% endfor %}
+</div>
+
+    {% else %}
+    No data
+
+    {% endif %}
+   
 
     {% if subdomains %}
     <h1>Subdomains</h1>
@@ -87,10 +123,11 @@
     {% endfor %}
     </ul>
     {% endif %}
-    
-    </div>
-  </div>
-</div>    
+ </div>
+
+      </div>
+</div>  
+
 {% endblock %}
 
 

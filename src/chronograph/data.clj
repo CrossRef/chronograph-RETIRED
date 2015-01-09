@@ -1,6 +1,7 @@
 (ns chronograph.data
   (:require [chronograph.db :as d]
-            [chronograph.core :as core])
+            [chronograph.core :as core]
+            [chronograph.util :as util])
   (:require [clj-http.client :as client])
   (:require [crossref.util.config :refer [config]]
             [crossref.util.date :as crdate]
@@ -251,7 +252,7 @@
   "Get all timelines for a subdomain"
   [subdomain]
   (when-let [timelines (k/select
-    d/referrer-domain-timelines
+    d/referrer-subdomain-timelines
     (k/where {:host subdomain})
     (k/with d/types))]
     (map (fn [timeline]
@@ -328,30 +329,54 @@ events))
                           [:types.name :type-name]))]
     events))
 
-; (defn get-domain-events
-;   "Get domain 'events' (i.e. events with a date stamp)"
-;   [host]
-;   (let [events (k/select d/referrer-domain-events 
-;                (k/with d/sources)
-;                (k/with d/types)
-;                (k/where (and (not= :event nil) (= :host host)))
-;                (k/order :referrer_domain_events.event)
-;                (k/fields [:sources.name :source-name]
-;                           [:types.name :type-name]))]
-;     events))
+(defn get-domain-events
+  "Get domain 'events' (i.e. events with a date stamp)"
+  [host]
+  (let [events (k/select d/referrer-domain-events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (not= :event nil) (= :domain host)))
+               (k/order :referrer_domain_events.event)
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+    events))
 
-; (defn get-subdomain-events
-;   "Get subdomain 'events' (i.e. events with a date stamp)"
-;   [host]
-;   (let [events (k/select d/referrer-subdomain-events 
-;                (k/with d/sources)
-;                (k/with d/types)
-;                (k/where (and (not= :event nil) (= :host host)))
-;                (k/order :referrer_subdomain_events.event)
-;                (k/fields [:sources.name :source-name]
-;                           [:types.name :type-name]))]
-;     events))
+(defn get-domain-facts
+  "Get 'facts' (i.e. non-time-based events)"
+  [host]
+  (let [events (k/select d/referrer-domain-events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (= :event nil) (= :domain host)))
+               
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+events))
 
+
+(defn get-subdomain-events
+  "Get subdomain 'events' (i.e. events with a date stamp)"
+  [host]
+  (let [events (k/select d/referrer-subdomain-events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (not= :event nil) (= :subdomain host)))
+               (k/order :referrer_subdomain_events.event)
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+    events))
+
+(defn get-subdomain-facts
+  "Get 'facts' (i.e. non-time-based events)"
+  [host]
+  (let [events (k/select d/referrer-subdomain-events 
+               (k/with d/sources)
+               (k/with d/types)
+               (k/where (and (= :event nil) (= :subdomain host)))
+               
+               (k/fields [:sources.name :source-name]
+                          [:types.name :type-name]))]
+events))
 (defn set-first-resolution-log [the-doi date]
   (k/exec-raw ["insert into doi (doi, firstResolutionLog) values (?, ?) on duplicate key update firstResolutionLog = ?"
                [the-doi (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
@@ -371,30 +396,15 @@ events))
     (prn "Delete referrer subdomain events for type" type-name type-id)
     (k/delete d/referrer-subdomain-events (k/where (= :type type-id)))))
 
-(defn get-other-subdomains [host]
-  ; Find mapping of host www.xyz.com to domain xyz
-  (when-let [sample (first (k/select d/referrer-subdomain-timelines (k/where (= :host host)) (k/limit 1)))]
-    (let [domain (:domain sample)
-          other-subdomains (k/select d/referrer-subdomain-timelines
-                                     (k/fields :host)
-                                     (k/group :host)
-                                     ; (k/aggregate (sum :count) :cnt)
-                                     (k/where (= :domain domain))
-                                     ; (k/order :cnt :desc)
-                                     )]
-      other-subdomains)))
-
-(defn get-subdomains-for-domain-host [host]
-    (when-let [sample (first (k/select d/referrer-domain-timelines (k/where (= :host host)) (k/limit 1)))]
-    (let [domain (:domain sample)
-          subdomains (k/select d/referrer-subdomain-timelines
-                                     (k/fields :host)
-                                     (k/group :host)
-                                     ; (k/aggregate (sum :count) :cnt)
-                                     (k/where (= :domain domain))
-                                     ; (k/order :cnt :desc)
-                                     )]
-      subdomains)))
+(defn get-subdomains-for-domain [domain]
+    (let [subdomains (k/select d/referrer-subdomain-timelines
+                     (k/fields :host)
+                     (k/group :host)
+                     ; (k/aggregate (sum :count) :cnt)
+                     (k/where (= :domain domain))
+                     ; (k/order :cnt :desc)
+                     )]
+      subdomains))
 
 (defn time-range
   "Return a lazy sequence of DateTimes from start to end, incremented

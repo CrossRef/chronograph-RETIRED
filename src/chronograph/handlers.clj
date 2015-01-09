@@ -1,6 +1,7 @@
 (ns chronograph.handlers
   (:require [chronograph.data :as d]
-            [chronograph.db :as db])
+            [chronograph.db :as db]
+            [chronograph.util :as util])
   (:require [clj-time.core :as t])
   (:require [compojure.core :refer [context defroutes GET ANY POST]]
             [compojure.handler :as handler]
@@ -158,12 +159,14 @@
                      continuous-events (remove :milestone events)
                      milestone-events (filter :milestone events)
                      
-                     continuous-events-by-type (group-by :type-name continuous-events)
-                     milestone-events-by-type (group-by :type-name milestone-events)
+                     ; TODO
+                     ; continuous-events-by-type (group-by :type-name continuous-events)
+                     ; milestone-events-by-type (group-by :type-name milestone-events)
                      
                      facts (d/get-doi-facts doi)
                      
-                     facts-by-type (group-by :type-name facts)
+                     ; TODO
+                     ; facts-by-type (group-by :type-name facts)
                      
                      ; Merge dates from events with dates from timelines
                      all-dates (concat timeline-dates (map :event events))
@@ -172,9 +175,9 @@
                      last-date (when all-dates-sorted (last all-dates-sorted))
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                                          timelines-with-extras (map #(assoc % :min (apply min (map second (:timeline %)))
-                                                                               :max (apply max (map second (:timeline %))))
-                                                                               interpolated-timelines)
+                     timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
+                                                 interpolated-timelines)
 
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
@@ -187,11 +190,11 @@
                                      :doi doi
                                      :events events
                                      :milestone-events milestone-events
-                                     :continuous-events continuous-events
-                                     :continuous-events-by-type continuous-events-by-type
-                                     :milestone-events-by-type milestone-events-by-type
+                                     ; :continuous-events continuous-events
+                                     ; :continuous-events-by-type continuous-events-by-type
+                                     ; :milestone-events-by-type milestone-events-by-type
                                      :facts facts
-                                     :facts-by-type facts-by-type
+                                     ; :facts-by-type facts-by-type
                                      :timelines timelines-with-extras
                                      }]
                (render-file "templates/doi.html" render-context))))
@@ -205,15 +208,18 @@
                (ring-response (redirect (str "/domains/" (::domain ctx))))))
 
 (defresource domain-page
-  [domain]
+  [host]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [;events (d/get-domain-events domain)
-                     events [] ; TODO currently replacing events with timelines
+               (let [[subdomain true-domain etld] (util/get-main-domain host)
+                     domain (str true-domain "." etld)
+                     
+                     events (d/get-domain-events domain)
+                     facts (d/get-domain-facts domain)
                      timelines (d/get-domain-timelines domain)
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
                                        
-                     events-by-type (group-by :type-name events)
+                     ; events-by-type (group-by :type-name events)
                      
                      all-dates (concat timeline-dates (map :event events))
                      all-dates-sorted (sort t/before? all-dates)
@@ -221,12 +227,15 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-
+                     timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
+                                                 interpolated-timelines)
+                    
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
-                     subdomains (d/get-subdomains-for-domain-host domain)
+                     subdomains (d/get-subdomains-for-domain true-domain)
                      
                      render-context {:first-date first-date
                                      :last-date last-date
@@ -234,10 +243,9 @@
                                      :last-date-pad last-date-pad
                                      :domain domain
                                      :events events
-                                     :events-by-type events-by-type
-                                     :timelines interpolated-timelines
-                                     :subdomains subdomains
-                                     }]
+                                     :facts facts
+                                     :timelines timelines-with-extras
+                                     :subdomains subdomains}]
                (render-file "templates/domain.html" render-context))))
 
 (defresource subdomains-redirect
@@ -249,40 +257,47 @@
                (ring-response (redirect (str "/subdomains/" (::subdomain ctx))))))
 
 (defresource subdomain-page
-  [subdomain]
+  [host]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [;events (d/get-subdomain-events subdomain)
-                     events []
-                     timelines (d/get-subdomain-timelines subdomain)
+               (let [[subdomain true-domain etld] (util/get-main-domain host)
+                     domain (str true-domain "." etld)
+                     
+                     events (d/get-subdomain-events host)
+                     facts (d/get-subdomain-facts host)
+                     timelines (d/get-subdomain-timelines host)
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
-                     
-                     events-by-type (group-by :type-name events)
-                     
+                                                            
                      all-dates (concat timeline-dates (map :event events))
                      all-dates-sorted (sort t/before? all-dates)
                      first-date (first all-dates-sorted)
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                                         
+                     timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
+                                                 interpolated-timelines)
+                    
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
-                     
-                     other-subdomains (d/get-other-subdomains subdomain)
+                     subdomains (d/get-subdomains-for-domain true-domain)
                      
                      render-context {:first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
-                                     :subdomain subdomain
+                                     :subdomain host
+                                     :domain domain
                                      :events events
-                                     :events-by-type events-by-type
-                                     :other-subdomains other-subdomains
-                                     :timelines interpolated-timelines}]
+                                     :facts facts
+                                     :timelines timelines-with-extras
+                                     :subdomains subdomains}]
                (render-file "templates/subdomain.html" render-context))))
+
+
+
 (defroutes app-routes
   (GET "/" [] (home))
   (context "/dois" []
