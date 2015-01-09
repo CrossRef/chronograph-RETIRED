@@ -1,0 +1,82 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+<div class="row">
+  <div class="col-md-12">
+    <h1>Top domains</h1>
+
+    <script>
+    $(function(){
+        var time = new Rickshaw.Fixtures.Time();
+
+    var palette = new Rickshaw.Color.Palette();
+
+    var series = [
+    {% for domain, results in top-domains %}
+    {color: palette.color("{{domain}}"),
+        name: "{{domain}}",
+     data: [{% for month, count in results %}{"x": new Date("{{ month|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}}}{% if not forloop.last %},
+    {% endif %}{% endfor %}]}{% if not forloop.last %},{% endif %}
+    {% endfor %}];
+
+    var graph = new Rickshaw.Graph( {
+        element: document.getElementById("chart"),
+        width: 1140,
+        height: 200,
+        interpolation: 'step-after',
+        renderer: 'line',
+        stroke: true,
+        preserve: true,
+        series: series
+            });
+
+    graph.render();
+
+    var hoverDetail = new Rickshaw.Graph.HoverDetail({
+        graph: graph,
+        xFormatter: function(x) {
+            return new Date(x * 1000).toString();
+        }});
+
+    var months = time.unit('month');
+
+    var xAxis = new Rickshaw.Graph.Axis.Time({
+        graph: graph,
+        timeUnit: months});
+
+    xAxis.render();
+
+    var yAxis = new Rickshaw.Graph.Axis.Y({
+        graph: graph,
+        tickFormat: Rickshaw.Fixtures.Number.formatKMBT});
+
+    yAxis.render();
+
+    var legend = new Rickshaw.Graph.Legend( { 
+            element: document.querySelector('#legend'), 
+            graph: graph
+        } );
+
+
+});
+</script>
+
+<div id="content">
+<div id="chart_container">
+    <div id="chart"></div>
+    <div id="legend"></div>
+
+</div>
+</div>
+
+
+</div>
+
+    </div>
+  </div>
+</div>  
+
+{% endblock %}
+
+

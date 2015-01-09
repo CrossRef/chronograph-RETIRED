@@ -182,4 +182,5 @@
     (fn [input]
       (when input
         (assoc input
+          :month (coerce/from-sql-date (:month input))
           :domains (when-let [d (:domains input)] (edn/read (java.io.PushbackReader. (reader d)))))))))

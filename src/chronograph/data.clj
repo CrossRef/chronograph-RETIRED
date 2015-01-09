@@ -282,8 +282,53 @@
         ok (= 200 (:status result))]
         (when ok
           [first-redirect last-redirect])))
-  
 
+(defn time-range
+  "Return a lazy sequence of DateTimes from start to end, incremented
+  by 'step' units of time."
+  [start end step]
+  (let [inf-range (time-period/periodic-seq start step)
+        below-end? (fn [tt] (t/within? (t/interval start end)
+                                         tt))]
+    (take-while below-end? inf-range)))
+  
+(defn interpolate-timeline
+  [values first-date last-date step]
+  (let [date-range (time-range first-date last-date step)]
+    (map (fn [date] [date (or (get values date) 0)]) date-range)))
+
+(defn get-top-domains-ever
+  "Get all the top-domains stats ever. Return as {domain months} where months spans entire range"
+  []
+  (let [all-results (k/select d/top-domains)
+        all-entries (mapcat :domains all-results)
+        ; domains (set (map first all-entries))
+        dates (sort t/before? (map :month all-results))
+        first-date (first dates)
+        last-date (last dates)
+        
+        ; transform into [month domain count]
+        transformed (mapcat (fn [entry] (map (fn [[domain cnt]] [(:month entry) domain cnt]) (:domains entry))) all-results)
+        
+        ; group into {domain => [month domain count]}
+        by-domain (group-by second transformed)
+        
+        ; group into {domain => {month => count}}
+        by-domain-map (into {}
+                            (map (fn [[domain dates]]
+                                   [domain (into {} (map (fn [[month domain cnt]]
+                                                           [month cnt]) dates))])
+                                 by-domain))
+        
+        ; interpolate dates to insert zeroes where there's no data
+        interpolated (when (and first-date last-date)
+                        (map (fn [[domain dates]] [domain (interpolate-timeline
+                                                            dates
+                                                            first-date
+                                                            last-date
+                                                            (t/months 1))]) by-domain-map))]
+    interpolated))
+  
 ; TODO for now not being used until the DOI denorm question is resolved.
 ; (defn run-doi-resolution []
 ;   ; TODO only run since given date
@@ -406,16 +451,5 @@ events))
                      )]
       subdomains))
 
-(defn time-range
-  "Return a lazy sequence of DateTimes from start to end, incremented
-  by 'step' units of time."
-  [start end step]
-  (let [inf-range (time-period/periodic-seq start step)
-        below-end? (fn [tt] (t/within? (t/interval start end)
-                                         tt))]
-    (take-while below-end? inf-range)))
 
-(defn interpolate-timeline
-  [values first-date last-date step]
-  (let [date-range (time-range first-date last-date step)]
-    (map (fn [date] [date (or (get values date) 0)]) date-range)))
+

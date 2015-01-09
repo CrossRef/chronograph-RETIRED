@@ -139,6 +139,14 @@
   :handle-ok (fn [ctx]
    (render-file "templates/index.html" {:interesting-dois interesting-dois})))
 
+(defresource top-domains
+  []
+  :available-media-types ["text/html"]
+  :handle-ok (fn [ctx]
+               (let [results (d/get-top-domains-ever)]
+                 (render-file "templates/top-domains.html" {:top-domains results}))))
+
+
 (defresource dois-redirect
   []
   :available-media-types ["text/html"]
@@ -158,16 +166,9 @@
                      
                      continuous-events (remove :milestone events)
                      milestone-events (filter :milestone events)
-                     
-                     ; TODO
-                     ; continuous-events-by-type (group-by :type-name continuous-events)
-                     ; milestone-events-by-type (group-by :type-name milestone-events)
-                     
+                                          
                      facts (d/get-doi-facts doi)
-                     
-                     ; TODO
-                     ; facts-by-type (group-by :type-name facts)
-                     
+                                          
                      ; Merge dates from events with dates from timelines
                      all-dates (concat timeline-dates (map :event events))
                      all-dates-sorted (sort t/before? all-dates)
@@ -300,6 +301,7 @@
 
 (defroutes app-routes
   (GET "/" [] (home))
+  (GET "/top-domains" [] (top-domains))
   (context "/dois" []
     (GET "/" [] (dois-redirect))
     (ANY "/*" {{doi :*} :params} (doi-page doi)))
