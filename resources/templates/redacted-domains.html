@@ -1,0 +1,23 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+<div class="row">
+  <div class="col-md-12">
+    <h1>Redacted domains</h1>
+    <p>Our resolution logs contain a record of every time a DOI was clicked and, in most circumstances, the address of the page that contained the link. We use this to gather the per-domain and per-subdomain referral statistics.</p>
+    <p>Because of the central and unique role that DOIs play in scholarly publishing, this includes a large amount of traffic between, and within publishers' websites. This traffic may be commercially sensitive and we can't release it.</p>
+    <p>We don't yet have a complete list of publishers' domains, so we have to work on a white-list of allowed domains. Unfortunately this excludes the majority of the domains.</p>
+
+    <p>We're currently working on automatically creating the black-list, but in the mean time, if you have a domain that you want to put onto the whitelist, please email jwass@crossref.org and I'll include it.</p>
+
+    <h2>Current domain whitelist</h2>
+    <ul>
+    {% for domain in domains %}
+    <li>{{domain}}</li>
+    {% endfor %}
+    </ul>
+  </div>
+</div>
+
+{% endblock %}

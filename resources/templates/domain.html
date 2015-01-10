@@ -7,6 +7,14 @@
     <h1>Domain: {{domain}}</h1>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
 
+    {% if not whitelisted %}
+    <div class="alert alert-danger" role="alert">
+      <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+      <span class="sr-only">Error:</span>
+      <strong>We're very sorry</strong> but you can't view stats for this domain. Please read <a href="/redacted-domains">why it has been redacted</a> and contact jwass@crossref.org if you want to put this domain on the whitelist.
+    </div>
+    {% else %}
+
     <table class="table table-striped">
     <thead>
     <tr>
@@ -125,6 +133,7 @@
     {% endif %}
  </div>
 
+        {% endif %}
       </div>
 </div>  
 

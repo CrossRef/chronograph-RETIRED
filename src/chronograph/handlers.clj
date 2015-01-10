@@ -139,6 +139,12 @@
   :handle-ok (fn [ctx]
    (render-file "templates/index.html" {:interesting-dois interesting-dois})))
 
+(defresource redacted-domains
+  []
+  :available-media-types ["text/html"]
+  :handle-ok (fn [ctx]
+   (render-file "templates/redacted-domains.html" {:domains (sort d/domain-whitelist)})))
+
 (defresource top-domains
   []
   :available-media-types ["text/html"]
@@ -215,6 +221,8 @@
                (let [[subdomain true-domain etld] (util/get-main-domain host)
                      domain (str true-domain "." etld)
                      
+                     whitelisted (d/domain-whitelisted? true-domain)
+                     
                      events (d/get-domain-events domain)
                      facts (d/get-domain-facts domain)
                      timelines (d/get-domain-timelines domain)
@@ -246,7 +254,9 @@
                                      :events events
                                      :facts facts
                                      :timelines timelines-with-extras
-                                     :subdomains subdomains}]
+                                     :subdomains subdomains
+                                     :whitelisted whitelisted
+                                     }]
                (render-file "templates/domain.html" render-context))))
 
 (defresource subdomains-redirect
@@ -263,6 +273,8 @@
   :handle-ok (fn [ctx]
                (let [[subdomain true-domain etld] (util/get-main-domain host)
                      domain (str true-domain "." etld)
+                     
+                     whitelisted (d/domain-whitelisted? true-domain)
                      
                      events (d/get-subdomain-events host)
                      facts (d/get-subdomain-facts host)
@@ -294,13 +306,15 @@
                                      :events events
                                      :facts facts
                                      :timelines timelines-with-extras
-                                     :subdomains subdomains}]
+                                     :subdomains subdomains
+                                     :whitelisted whitelisted}]
                (render-file "templates/subdomain.html" render-context))))
 
 
 
 (defroutes app-routes
   (GET "/" [] (home))
+  (GET "/redacted-domains" [] (redacted-domains))
   (GET "/top-domains" [] (top-domains))
   (context "/dois" []
     (GET "/" [] (dois-redirect))

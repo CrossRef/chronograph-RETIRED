@@ -15,6 +15,17 @@
   (:require [robert.bruce :refer [try-try-again]])
   (:require [clojure.core.async :as async :refer [<! <!! go chan]]))
 
+(defn get-domain-whitelist 
+  "Load the whitelist file"
+  []
+  (with-open [reader (clojure.java.io/reader (clojure.java.io/resource "domain-whitelist.txt"))]
+    (let [lines (line-seq reader)
+          whitelist (into #{} lines)]
+      whitelist)))
+
+(def domain-whitelist (get-domain-whitelist))
+
+(defn domain-whitelisted? [domain] (domain-whitelist domain))
 
 (defn get-type-id-by-name [type-name]
   (:id (first (k/select d/types (k/where {:ident type-name})))))
@@ -326,8 +337,12 @@
                                                             dates
                                                             first-date
                                                             last-date
-                                                            (t/months 1))]) by-domain-map))]
-    interpolated))
+                                                            (t/months 1))]) by-domain-map))
+        redacted (map (fn [[domain dates]]
+                        (let [[_ true-domain _] (util/get-main-domain domain)]
+                          [(if (domain-whitelist true-domain) domain "redacted") dates])) interpolated)
+        ]
+    redacted))
   
 ; TODO for now not being used until the DOI denorm question is resolved.
 ; (defn run-doi-resolution []

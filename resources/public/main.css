@@ -1,3 +1,11 @@
+strong {
+  font-weight: bold;
+}
+
+a {
+  text-decoration:  underline;
+}
+
 .cr-red {
     color: #c0473f;
 }
@@ -139,6 +147,7 @@ a, a:hover, a:visited {
 
 body {
     font-family: "Raleway","Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 17px;
 }
 
 @-webkit-keyframes spinner {
