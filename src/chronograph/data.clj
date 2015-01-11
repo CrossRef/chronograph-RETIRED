@@ -177,28 +177,29 @@
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [host domain type-id source-id data merge-fn]
-  (let [initial-row (first (k/select d/referrer-domain-timelines
-                                     (k/where {:domain domain
-                                                :host host
-                                                :type type-id
-                                                :source source-id})))
-        initial-row-data (or (:timeline initial-row) {})
-        merged-data (merge-with merge-fn initial-row-data data)]
-    (if initial-row
-      (k/update d/referrer-domain-timelines
-                (k/where {:domain domain
-                          :host host
-                          :type type-id
-                          :source source-id})
-                (k/set-fields {:timeline merged-data}))
-      
-      (k/insert d/referrer-domain-timelines
-                (k/values {:domain domain
-                           :host host
-                           :type type-id
-                           :source source-id
-                           :inserted (coerce/to-sql-time (t/now))
-                           :timeline merged-data})))))
+  (when (and (< (.length domain) 128) (< (.length host) 128))
+    (let [initial-row (first (k/select d/referrer-domain-timelines
+                                       (k/where {:domain domain
+                                                  :host host
+                                                  :type type-id
+                                                  :source source-id})))
+          initial-row-data (or (:timeline initial-row) {})
+          merged-data (merge-with merge-fn initial-row-data data)]
+      (if initial-row
+        (k/update d/referrer-domain-timelines
+                  (k/where {:domain domain
+                            :host host
+                            :type type-id
+                            :source source-id})
+                  (k/set-fields {:timeline merged-data}))
+        
+        (k/insert d/referrer-domain-timelines
+                  (k/values {:domain domain
+                             :host host
+                             :type type-id
+                             :source source-id
+                             :inserted (coerce/to-sql-time (t/now))
+                             :timeline merged-data}))))))
 
 (defn insert-domain-timelines
   "Insert chunk of domain timelines in a transaction."
@@ -214,28 +215,29 @@
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [host domain type-id source-id data merge-fn]
-  (let [initial-row (first (k/select d/referrer-subdomain-timelines
-                                     (k/where {:domain domain
-                                               :host host
-                                               :type type-id
-                                               :source source-id})))
-        initial-row-data (or (:timeline initial-row) {})
-        merged-data (merge-with merge-fn initial-row-data data)]
-    (if initial-row
-      (k/update d/referrer-subdomain-timelines
-                (k/where {:domain domain
-                          :host host
-                          :type type-id
-                          :source source-id})
-                (k/set-fields {:timeline merged-data}))
-      
-      (k/insert d/referrer-subdomain-timelines
-                (k/values {:domain domain
-                           :host host
-                           :type type-id
-                           :source source-id
-                           :inserted (coerce/to-sql-time (t/now))
-                           :timeline merged-data})))))
+  (when (and (< (.length domain) 128) (< (.length host) 128))
+    (let [initial-row (first (k/select d/referrer-subdomain-timelines
+                                       (k/where {:domain domain
+                                                 :host host
+                                                 :type type-id
+                                                 :source source-id})))
+          initial-row-data (or (:timeline initial-row) {})
+          merged-data (merge-with merge-fn initial-row-data data)]
+      (if initial-row
+        (k/update d/referrer-subdomain-timelines
+                  (k/where {:domain domain
+                            :host host
+                            :type type-id
+                            :source source-id})
+                  (k/set-fields {:timeline merged-data}))
+        
+        (k/insert d/referrer-subdomain-timelines
+                  (k/values {:domain domain
+                             :host host
+                             :type type-id
+                             :source source-id
+                             :inserted (coerce/to-sql-time (t/now))
+                             :timeline merged-data}))))))
 
 (defn insert-subdomain-timelines
   "Insert chunk of subdomain timelines in a transaction."

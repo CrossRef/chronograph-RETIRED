@@ -67,7 +67,13 @@
         date (format/parse date-str)]
     [string date]))
 
-; NEW!
+
+(defn swallow-parse
+  "Try to parse line, return nil on error"
+  [f line]
+  (try 
+    (f line)
+    (catch Exception e (prn "bad line" line))))
 
 (def transaction-chunk-size 10000)
 
@@ -87,7 +93,7 @@
         whole (apply concat seqs)
         
         ; Lazy seq of lines parsed.
-        parsed (remove nil? (map f whole))]
+        parsed (remove nil? (map #(swallow-parse f %) whole))]
     parsed))
 
 (defn insert-doi-timelines
