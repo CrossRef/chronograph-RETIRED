@@ -8,7 +8,11 @@
 
 (defn -main
   [& args]
-    
+  
+  (when (= (first args) "update-member-domains")
+      (prn "update-member-domains")
+      (mdapi/update-member-domains))
+  
   (when (= (first args) "import-ever")
       (prn "DOI import everything ever")
       (mdapi/get-dois-updated-since nil))

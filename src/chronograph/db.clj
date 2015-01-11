@@ -184,3 +184,11 @@
         (assoc input
           :month (coerce/from-sql-date (:month input))
           :domains (when-let [d (:domains input)] (edn/read (java.io.PushbackReader. (reader d)))))))))
+
+
+(k/defentity member-domains
+  (k/table "member_domains")
+  (k/pk :id)
+  (k/entity-fields
+    :member-id
+    :domain))

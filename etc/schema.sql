@@ -51,7 +51,7 @@ CREATE INDEX event_doi_source_type on events (doi, source, type);
 CREATE INDEX event_doi on events (doi);
 
 -- Storage of entire timeline per DOI.
-CREATE TABLE event_timelines (
+CREATE TABLE event_timelines_isam (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     doi VARCHAR(700),
 
@@ -67,8 +67,8 @@ CREATE TABLE event_timelines (
     UNIQUE(doi, source, type)
 );
 
-CREATE INDEX event_timelines_doi_source_type ON event_timelines (doi, source, type);
-CREATE INDEX event_timelines_doi ON event_timelines (doi);
+CREATE INDEX event_timelines_doi_source_type_isam ON event_timelines_isam (doi, source, type);
+CREATE INDEX event_timelines_doi_isam ON event_timelines_isam (doi);
 
 -- Storage of entire timeline per referrer domain.
 CREATE TABLE referrer_domain_timelines (
@@ -103,7 +103,8 @@ CREATE TABLE referrer_subdomain_timelines (
     type INT NOT NULL REFERENCES types(id),
 
     -- JSON of date -> count
-    timeline MEDIUMBLOB
+    timeline MEDIUMBLOB,
+    UNIQUE (domain, host, source, type)
 );
 
 CREATE INDEX domain_timelines_subdomain_source_type ON referrer_subdomain_timelines (domain, host, source, type);
@@ -137,9 +138,17 @@ CREATE INDEX referrer_subdomain_events_type_source ON referrer_subdomain_events 
 CREATE TABLE top_domains (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     month DATETIME NOT NULL,
-    domains MEDIUMBLOB
+    domains MEDIUMBLOB,
+    UNIQUE (month)
 );
 CREATE INDEX top_domains_month on top_domains (month);
+
+CREATE TABLE member_domains (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    member_id INTEGER NOT NULL,
+    domain VARCHAR(128) NOT NULL,
+    UNIQUE(member_id, domain)
+);
 
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");
 insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution Logs");

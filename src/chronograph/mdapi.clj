@@ -1,6 +1,7 @@
 (ns chronograph.mdapi
   (:require [chronograph.data :as data]
-            [chronograph.core :as core])
+            [chronograph.core :as core]
+            [chronograph.util :as util])
   (:require [clj-http.client :as client])
   (:require [crossref.util.config :refer [config]]
             [crossref.util.date :as crdate]
@@ -19,8 +20,11 @@
 
 ; Temporary custom values. 
 (def works-endpoint "http://148.251.178.33:3000/v1/works")
+(def members-endpoint "http://148.251.178.33:3000/v1/members")
 (def api-page-size 100000)
+(def members-api-page-size 1000)
 (def transaction-chunk-size 10000)
+(def sample-size 100)
 
 (def page-channel (chan))
 (def issued-type-id (data/get-type-id-by-name "issued"))
@@ -85,3 +89,54 @@
     (get-dois-updated-since last-run-date)    
     (data/set-last-run-date! now)))
 
+(def member-channel (chan))
+
+(defn process-member [member-id]
+  ; Do each member in background concurrently
+  (prn "Member id" member-id)
+  (let [works-url (str members-endpoint "/" member-id "/works" \? (client/generate-query-string {:sample sample-size :rows sample-size}))
+        works-results (try-try-again {:sleep 5000 :tries :unlimited}
+               #(client/get works-url {:as :json}))
+        works (-> works-results :body :message :items)
+        dois (map :DOI works)]
+    (doseq [doi dois]
+      (let [url (str "http://dx.doi.org/" doi)
+            result (try-try-again {:sleep 5000 :tries :unlimited}
+               #(client/get url))
+            ; drop first, it's always "dx.doi.org"
+            redirects (rest (:trace-redirects result))
+            all-domains (map (fn [url]
+                            (let [host (.getHost (new java.net.URL url))
+                                  [subdomain true-domain etld] (util/get-main-domain host)
+                                  domain-part (str true-domain "." etld)]
+                                domain-part)) redirects)
+            all-domains (into #{} all-domains)]
+        (prn "Domains for DOI" doi all-domains)
+              (data/insert-member-domains member-id all-domains)))))
+
+(dotimes [_ 1000]
+   (go
+     (prn "Wait")
+     (loop [job (<!! member-channel)]
+       (prn "Go")
+       (when job
+         (process-member job)
+         (recur (<!! member-channel))))))
+
+(defn update-member-domains []
+  (let [results (try-try-again {:sleep 5000 :tries :unlimited}
+                               #(client/get (str members-endpoint \? (client/generate-query-string {:rows 0})) {:as :json}))
+        num-results (-> results :body :message :total-results)
+        ; Extra page just in case.
+        num-pages (+ (quot num-results members-api-page-size) 2)
+        page-queries (map #(str members-endpoint \? (client/generate-query-string (assoc {}
+                                                                                  :rows members-api-page-size
+                                                                                  :offset (* members-api-page-size %)))) (range num-pages))]
+        (doseq [page-url page-queries]
+          (let [results (try-try-again {:sleep 5000 :tries :unlimited}
+                         #(client/get page-url {:as :json}))
+                members (-> results :body :message :items)]
+            (doseq [member members]
+              (prn "Spool" (:id member))
+              (>!! member-channel (:id member)))))))
+              

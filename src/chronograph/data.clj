@@ -15,6 +15,12 @@
   (:require [robert.bruce :refer [try-try-again]])
   (:require [clojure.core.async :as async :refer [<! <!! go chan]]))
 
+(defn insert-member-domains [member-id domains]
+  (kdb/transaction
+    (doseq [domain domains]
+      (k/exec-raw ["INSERT INTO member_domains (member_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = domain"
+                 [member-id domain]]))))
+
 (defn get-domain-whitelist 
   "Load the whitelist file"
   []
