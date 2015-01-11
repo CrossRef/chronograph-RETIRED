@@ -4,8 +4,16 @@
 <div class="container">
 <div class="row">
   <div class="col-md-12">
-    <h1>Top {{top}} domains per month</h1>
-    <p>Please note that some of these domains are <a href="/redacted-domains">redacted</a>. We also remove 'domain not known', which would normally show as top domain. </p>
+    {% if include-members %}
+    <h1>Top {{top}} domains per month including members</h1>
+    {% else %}
+    <h1>Top {{top}} non-member domains per month</h1>
+    {% endif %}
+    {% if include-members %}
+    <p>Please note that domains that belong to members are shown as 'redacted'. You can also view <a href="/top-domains">top non-member referrer domains</a>.</p>
+    {% else %}
+    <p>These are the top domains for domains that don't belong to CrossRef members. You can see the same view <a href="/top-domains-members">including members</a>.</p>
+    {% endif %}
     <p>Show: <a href="?top=5">5</a> <a href="?top=10">10</a> <a href="?top=20">20</a> <a href="?top=50">50</a> <a href="?top=100">100</a> <a href="?top=200">200</a> per month. Note that this takes top-n per month, so will show more than n lines in order to show all relevant domains.</p>
     <script>
     $(function(){

@@ -328,9 +328,13 @@
 
 (def exclude-domains #{"no-referrer." "doi.org"})
 
+(defn whitelist-domain [[domain-host _]]
+  (let [true-domain (second (util/get-main-domain domain-host))]
+    (domain-whitelist true-domain)))
+
 (defn get-top-domains-ever
   "Get all the top-domains stats ever. Return as {domain months} where months spans entire range"
-  [redact? take-n]
+  [redact? include-members take-n]
   (let [all-results (k/select d/top-domains)
                         
         dates (sort t/before? (map :month all-results))
@@ -343,13 +347,21 @@
                          [(:month entry) (reverse (sort-by second (:domains entry)))]) all-results)
         
         ; Now we need to take the union of all domains that appeared in the top-n in any given month.
-        top-n-domains (into #{} (mapcat (fn [[_ domains]] (map first (take take-n domains))) sorted-domains))
+        top-n-domains (into #{} (mapcat (fn [[_ domains]] (map first (take take-n (if include-members
+                                                                                    domains
+                                                                                    (filter whitelist-domain domains)))))
+                                        sorted-domains))
         
         ; transform into [month domain count]
         transformed (mapcat (fn [[month domains]] (map (fn [[domain cnt]] [month domain cnt]) domains)) sorted-domains)
         
         ; remove un-useful domains, include only desired top-n domains
+        ; filtered (if include-members
+                   ; (remove #(exclude-domains (second %)) transformed)
+                   ; (filter #(domain-whitelist (second (util/get-main-domain (second %)))) transformed))
+        
         filtered (remove #(exclude-domains (second %)) transformed)
+        
         filtered (filter #(top-n-domains (second %)) filtered)
         
         ; group into {domain => [month domain count]}
@@ -373,7 +385,7 @@
         redacted (map (fn [[domain dates]]
                         (let [[_ true-domain _] (util/get-main-domain domain)]
                           [(if (domain-whitelist true-domain) domain "redacted") dates])) interpolated)]
-      (if redact? redacted interpolated)))
+          (if redact? redacted interpolated)))
   
 ; TODO for now not being used until the DOI denorm question is resolved.
 ; (defn run-doi-resolution []

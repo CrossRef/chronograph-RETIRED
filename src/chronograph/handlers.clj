@@ -131,8 +131,7 @@
 "10.1007/s12098-013-1078-8"     
 "10.1111/cobi.12084"            
 ])
-
-
+ 
 (defresource home
   []
   :available-media-types ["text/html"]
@@ -157,9 +156,20 @@
                                   (catch java.lang.NumberFormatException _ nil))]
                         [(not top) {::top top}]))
   :handle-ok (fn [ctx]
-               (let [results (d/get-top-domains-ever true (::top ctx))]
-                 (render-file "templates/top-domains.html" {:top-domains results :top (::top ctx)}))))
+               (let [results (d/get-top-domains-ever true false (::top ctx))]
+                 (render-file "templates/top-domains.html" {:include-members false :top-domains results :top (::top ctx)}))))
 
+(defresource top-domains-members
+  []
+  :available-media-types ["text/html"]
+  :malformed? (fn [ctx]
+                      (let [top (try
+                                  (. Integer parseInt (or (-> ctx :request :params :top) "200"))
+                                  (catch java.lang.NumberFormatException _ nil))]
+                        [(not top) {::top top}]))
+  :handle-ok (fn [ctx]
+               (let [results (d/get-top-domains-ever true true (::top ctx))]
+                 (render-file "templates/top-domains.html" {:include-members true :top-domains results :top (::top ctx)}))))
 
 (defresource dois-redirect
   []
@@ -323,6 +333,7 @@
 (defroutes app-routes
   (GET "/" [] (home))
   (GET "/redacted-domains" [] (redacted-domains))
+  (GET "/top-domains-members" [] (top-domains-members))
   (GET "/top-domains" [] (top-domains))
   (context "/dois" []
     (GET "/" [] (dois-redirect))
