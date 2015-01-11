@@ -55,18 +55,20 @@
     (catch Exception e (prn "EXCEPTION" e))))
 
 (defn insert-domain-event [domain type-id source-id date cnt]
-  (try
-    (k/exec-raw ["INSERT INTO referrer_domain_events (domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
-                 [domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
-                  (coerce/to-sql-time date) (or cnt 1)]])
-    (catch Exception e (prn "EXCEPTION" e))))
+  (when (and (< (.length domain) 128))
+    (try
+      (k/exec-raw ["INSERT INTO referrer_domain_events (domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
+                   [domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
+                    (coerce/to-sql-time date) (or cnt 1)]])
+      (catch Exception e (prn "EXCEPTION" e)))))
 
 (defn insert-subdomain-event [host domain type-id source-id date cnt]
-  (try
-    (k/exec-raw ["INSERT INTO referrer_subdomain_events (subdomain, domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
-                 [host domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
-                  (coerce/to-sql-time date) (or cnt 1)]])
-    (catch Exception e (prn "EXCEPTION" e))))
+  (when (and (< (.length domain) 128) (< (.length host) 128))
+    (try
+      (k/exec-raw ["INSERT INTO referrer_subdomain_events (subdomain, domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
+                   [host domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
+                    (coerce/to-sql-time date) (or cnt 1)]])
+      (catch Exception e (prn "EXCEPTION" e)))))
 
 (defn insert-events-chunk
   "Insert chunk of inputs to insert-event"
