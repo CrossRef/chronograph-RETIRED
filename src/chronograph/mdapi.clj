@@ -20,8 +20,7 @@
 ; Temporary custom values. 
 (def works-endpoint "http://148.251.178.33:3000/v1/works")
 (def api-page-size 100000)
-
-
+(def transaction-chunk-size 10000)
 
 (def page-channel (chan))
 (def issued-type-id (data/get-type-id-by-name "issued"))
@@ -60,7 +59,9 @@
         to-insert (remove nil? transformed)]
     
     (prn "insert chunk...")
-    (data/insert-events-chunk to-insert)
+    (doseq [subchunk (partition-all transaction-chunk-size to-insert)]
+      (prn "insert subchunk... ")
+      (data/insert-events-chunk subchunk))
     (prn "done")))
 
 (defn get-dois-updated-since [date]

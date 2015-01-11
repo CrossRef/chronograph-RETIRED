@@ -69,7 +69,7 @@
 
 ; NEW!
 
-(def transaction-chunk-size 100000)
+(def transaction-chunk-size 10000)
 
 (defn lazy-line-seq
   "Lazy seq of parsed lines"

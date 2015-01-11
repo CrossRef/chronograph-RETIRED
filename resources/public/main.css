@@ -6,6 +6,12 @@ a {
   text-decoration:  underline;
 }
 
+
+.navbar-brand {
+  text-decoration: none;
+  color: red;
+}
+
 .cr-red {
     color: #c0473f;
 }

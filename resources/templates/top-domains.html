@@ -4,8 +4,9 @@
 <div class="container">
 <div class="row">
   <div class="col-md-12">
-    <h1>Top domains</h1>
-    <p>Please note that some of these domains are <a href="/redacted-domains">redacted</a>.</p>
+    <h1>Top {{top}} domains per month</h1>
+    <p>Please note that some of these domains are <a href="/redacted-domains">redacted</a>. We also remove 'domain not known', which would normally show as top domain. </p>
+    <p>Show: <a href="?top=5">5</a> <a href="?top=10">10</a> <a href="?top=20">20</a> <a href="?top=50">50</a> <a href="?top=100">100</a> <a href="?top=200">200</a> per month. Note that this takes top-n per month, so will show more than n lines in order to show all relevant domains.</p>
     <script>
     $(function(){
         var time = new Rickshaw.Fixtures.Time();
@@ -23,13 +24,12 @@
     var graph = new Rickshaw.Graph( {
         element: document.getElementById("chart"),
         width: 1140,
-        height: 200,
-        interpolation: 'step-after',
+        height: 500,
+        interpolation: 'linear',
         renderer: 'line',
         stroke: true,
         preserve: true,
-        series: series
-            });
+        series: series});
 
     graph.render();
 
@@ -58,7 +58,10 @@
             graph: graph
         } );
 
-
+    var highlighter = new Rickshaw.Graph.Behavior.Series.Highlight( {
+        graph: graph,
+        legend: legend
+    } );
 });
 </script>
 

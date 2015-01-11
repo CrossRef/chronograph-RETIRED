@@ -20,10 +20,24 @@
   []
   (with-open [reader (clojure.java.io/reader (clojure.java.io/resource "domain-whitelist.txt"))]
     (let [lines (line-seq reader)
-          whitelist (into #{} lines)]
-      whitelist)))
+          ; split into [+-? domain]
+          lines (map (fn [line] [(.substring line 0 1) (.substring line 1)]) lines)
+          ; turn example.com into example
+          lines-domains (map (fn [[marker domain]] [marker (second (util/get-main-domain domain))]) lines)
+          whitelist (filter #(= "+" (first %)) lines-domains)
+          blacklist (filter #(= "-" (first %)) lines-domains)
+          unsurelist (filter #(= "?" (first %)) lines-domains)
+          
+          whitelist-output (into #{} (map second whitelist))
+          blacklist-output (into #{} (map second blacklist))
+          unknownlist-output (into #{} (map second unsurelist))]
+      [whitelist-output blacklist-output unknownlist-output])))
 
-(def domain-whitelist (get-domain-whitelist))
+(def whitelists (get-domain-whitelist))
+
+(def domain-whitelist (first whitelists))
+(def domain-blacklist (second whitelists))
+(def domain-unknownlist (nth whitelists 2))
 
 (defn domain-whitelisted? [domain] (domain-whitelist domain))
 
@@ -308,21 +322,34 @@
   (let [date-range (time-range first-date last-date step)]
     (map (fn [date] [date (or (get values date) 0)]) date-range)))
 
+(def exclude-domains #{"no-referrer." "doi.org"})
+
 (defn get-top-domains-ever
   "Get all the top-domains stats ever. Return as {domain months} where months spans entire range"
-  []
+  [redact? take-n]
   (let [all-results (k/select d/top-domains)
-        all-entries (mapcat :domains all-results)
-        ; domains (set (map first all-entries))
+                        
         dates (sort t/before? (map :month all-results))
         first-date (first dates)
         last-date (last dates)
+      
+        ; limit to top n domains per month   
+        ; transform to pairs of [month domains-sorted]
+        sorted-domains (map (fn [entry]
+                         [(:month entry) (reverse (sort-by second (:domains entry)))]) all-results)
+        
+        ; Now we need to take the union of all domains that appeared in the top-n in any given month.
+        top-n-domains (into #{} (mapcat (fn [[_ domains]] (map first (take take-n domains))) sorted-domains))
         
         ; transform into [month domain count]
-        transformed (mapcat (fn [entry] (map (fn [[domain cnt]] [(:month entry) domain cnt]) (:domains entry))) all-results)
+        transformed (mapcat (fn [[month domains]] (map (fn [[domain cnt]] [month domain cnt]) domains)) sorted-domains)
+        
+        ; remove un-useful domains, include only desired top-n domains
+        filtered (remove #(exclude-domains (second %)) transformed)
+        filtered (filter #(top-n-domains (second %)) filtered)
         
         ; group into {domain => [month domain count]}
-        by-domain (group-by second transformed)
+        by-domain (group-by second filtered)
         
         ; group into {domain => {month => count}}
         by-domain-map (into {}
@@ -338,11 +365,11 @@
                                                             first-date
                                                             last-date
                                                             (t/months 1))]) by-domain-map))
+        
         redacted (map (fn [[domain dates]]
                         (let [[_ true-domain _] (util/get-main-domain domain)]
-                          [(if (domain-whitelist true-domain) domain "redacted") dates])) interpolated)
-        ]
-    redacted))
+                          [(if (domain-whitelist true-domain) domain "redacted") dates])) interpolated)]
+      (if redact? redacted interpolated)))
   
 ; TODO for now not being used until the DOI denorm question is resolved.
 ; (defn run-doi-resolution []

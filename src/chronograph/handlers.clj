@@ -143,14 +143,22 @@
   []
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-   (render-file "templates/redacted-domains.html" {:domains (sort d/domain-whitelist)})))
+   (render-file "templates/redacted-domains.html" {:whitelist (sort d/domain-whitelist)
+                                                   :blacklist (sort d/domain-blacklist)
+                                                   :unknownlist (sort d/domain-unknownlist)
+                                                   })))
 
 (defresource top-domains
   []
   :available-media-types ["text/html"]
+  :malformed? (fn [ctx]
+                      (let [top (try
+                                  (. Integer parseInt (or (-> ctx :request :params :top) "200"))
+                                  (catch java.lang.NumberFormatException _ nil))]
+                        [(not top) {::top top}]))
   :handle-ok (fn [ctx]
-               (let [results (d/get-top-domains-ever)]
-                 (render-file "templates/top-domains.html" {:top-domains results}))))
+               (let [results (d/get-top-domains-ever true (::top ctx))]
+                 (render-file "templates/top-domains.html" {:top-domains results :top (::top ctx)}))))
 
 
 (defresource dois-redirect
