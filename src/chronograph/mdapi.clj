@@ -114,7 +114,7 @@
         (prn "Domains for DOI" doi all-domains)
               (data/insert-member-domains member-id all-domains)))))
 
-(dotimes [_ 1000]
+(dotimes [_ 10]
    (go
      (prn "Wait")
      (loop [job (<!! member-channel)]
