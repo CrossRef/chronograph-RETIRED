@@ -62,7 +62,7 @@
   (reduce-kv (fn [m k v] (assoc m (coerce/from-date k) v)) {} timeline))
 
 (k/defentity event-timelines
-  (k/table "event_timelines")
+  (k/table "event_timelines_isam")
   (k/pk :id)
   (k/entity-fields
     :id
