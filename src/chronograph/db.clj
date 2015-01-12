@@ -190,5 +190,5 @@
   (k/table "member_domains")
   (k/pk :id)
   (k/entity-fields
-    :member-id
+    ["member_id" :member-id]
     :domain))

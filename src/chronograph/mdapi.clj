@@ -114,7 +114,7 @@
         (prn "Domains for DOI" doi all-domains)
               (data/insert-member-domains member-id all-domains)))))
 
-(dotimes [_ 10]
+(dotimes [_ 50]
    (go
      (prn "Wait")
      (loop [job (<!! member-channel)]
@@ -133,7 +133,7 @@
                                                                                   :rows members-api-page-size
                                                                                   :offset (* members-api-page-size %)))) (range num-pages))]
         (doseq [page-url page-queries]
-          (let [results (try-try-again {:sleep 5000 :tries :unlimited}
+          (let [results (try-try-again {:sleep 5000 :tries 3}
                          #(client/get page-url {:as :json}))
                 members (-> results :body :message :items)]
             (doseq [member members]

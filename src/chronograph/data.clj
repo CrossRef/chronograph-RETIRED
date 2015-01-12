@@ -21,31 +21,12 @@
       (k/exec-raw ["INSERT INTO member_domains (member_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = domain"
                  [member-id domain]]))))
 
-(defn get-domain-whitelist 
-  "Load the whitelist file"
-  []
-  (with-open [reader (clojure.java.io/reader (clojure.java.io/resource "domain-whitelist.txt"))]
-    (let [lines (line-seq reader)
-          ; split into [+-? domain]
-          lines (map (fn [line] [(.substring line 0 1) (.substring line 1)]) lines)
-          ; turn example.com into example
-          lines-domains (map (fn [[marker domain]] [marker (second (util/get-main-domain domain))]) lines)
-          whitelist (filter #(= "+" (first %)) lines-domains)
-          blacklist (filter #(= "-" (first %)) lines-domains)
-          unsurelist (filter #(= "?" (first %)) lines-domains)
-          
-          whitelist-output (into #{} (map second whitelist))
-          blacklist-output (into #{} (map second blacklist))
-          unknownlist-output (into #{} (map second unsurelist))]
-      [whitelist-output blacklist-output unknownlist-output])))
+(defn get-member-domains []
+  (into #{} (map :domain (k/select d/member-domains))))
 
-(def whitelists (get-domain-whitelist))
+(def member-domains (get-member-domains))
 
-(def domain-whitelist (first whitelists))
-(def domain-blacklist (second whitelists))
-(def domain-unknownlist (nth whitelists 2))
-
-(defn domain-whitelisted? [domain] (domain-whitelist domain))
+(defn domain-whitelisted? [domain] (not (member-domains domain)))
 
 (defn get-type-id-by-name [type-name]
   (:id (first (k/select d/types (k/where {:ident type-name})))))
@@ -335,8 +316,7 @@
 (def exclude-domains #{"no-referrer." "doi.org"})
 
 (defn whitelist-domain [[domain-host _]]
-  (let [true-domain (second (util/get-main-domain domain-host))]
-    (domain-whitelist true-domain)))
+    (not (member-domains domain-host)))
 
 (defn get-top-domains-ever
   "Get all the top-domains stats ever. Return as {domain months} where months spans entire range"
@@ -389,8 +369,7 @@
                                                             (t/months 1))]) by-domain-map))
         
         redacted (map (fn [[domain dates]]
-                        (let [[_ true-domain _] (util/get-main-domain domain)]
-                          [(if (domain-whitelist true-domain) domain "redacted") dates])) interpolated)]
+                          [(if (not (member-domains domain)) domain "member domain") dates]) interpolated)]
           (if redact? redacted interpolated)))
   
 ; TODO for now not being used until the DOI denorm question is resolved.

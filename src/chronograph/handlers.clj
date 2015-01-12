@@ -128,14 +128,11 @@
   :handle-ok (fn [ctx]
    (render-file "templates/index.html" {:interesting-dois interesting-dois})))
 
-(defresource redacted-domains
+(defresource member-domains
   []
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-   (render-file "templates/redacted-domains.html" {:whitelist (sort d/domain-whitelist)
-                                                   :blacklist (sort d/domain-blacklist)
-                                                   :unknownlist (sort d/domain-unknownlist)
-                                                   })))
+   (render-file "templates/member-domains.html" {:member-domains (sort d/member-domains)})))
 
 (defresource top-domains
   []
@@ -322,7 +319,7 @@
 
 (defroutes app-routes
   (GET "/" [] (home))
-  (GET "/redacted-domains" [] (redacted-domains))
+  (GET "/member-domains" [] (member-domains))
   (GET "/top-domains-members" [] (top-domains-members))
   (GET "/top-domains" [] (top-domains))
   (context "/dois" []

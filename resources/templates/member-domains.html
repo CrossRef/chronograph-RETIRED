@@ -1,0 +1,23 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+<div class="row">
+  <div class="col-md-12">
+    <h1>CrossRef Member domains</h1>
+    <p>The statistics for CrossRef members (mostly publishers) is not available to the public.
+
+    <p>Because of the central and unique role that DOIs play in scholarly publishing, this would include a large amount of traffic between, and within publishers' websites. This traffic may be commercially sensitive and we can't release it.</p>
+
+    <p>If you have any queries about this list please email jwass@crossref.org</p>
+
+    <h2>Current member domain list</h2>
+    <ul>
+    {% for domain in member-domains %}
+    <li>{{domain}}</li>
+    {% endfor %}
+    </ul>
+  </div>
+</div>
+
+{% endblock %}
