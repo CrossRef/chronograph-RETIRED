@@ -22,7 +22,7 @@
 (def works-endpoint "http://148.251.178.33:3000/v1/works")
 (def members-endpoint "http://148.251.178.33:3000/v1/members")
 (def api-page-size 100000)
-(def members-api-page-size 1000)
+(def members-api-page-size 100)
 (def transaction-chunk-size 10000)
 (def sample-size 100)
 
@@ -102,7 +102,7 @@
         domains (mapcat     
                   (fn [doi]
                     (let [url (str "http://dx.doi.org/" doi)
-                          result (try-try-again {:sleep 5000 :tries :unlimited}
+                          result (try-try-again {:sleep 1000 :tries 2}
                              #(client/get url))
                           ; drop first, it's always "dx.doi.org"
                           redirects (rest (:trace-redirects result))
