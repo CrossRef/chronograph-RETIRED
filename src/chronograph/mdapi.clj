@@ -95,24 +95,26 @@
   ; Do each member in background concurrently
   (locking *out* (prn "Member id" member-id))
   (let [works-url (str members-endpoint "/" member-id "/works" \? (client/generate-query-string {:sample sample-size :rows sample-size}))
-        works-results (try-try-again {:sleep 5000 :tries :unlimited}
+        works-results 
+        (try-try-again {:sleep 5000 :tries :unlimited}
                #(client/get works-url {:as :json}))
         works (-> works-results :body :message :items)
         dois (map :DOI works)
         domains (mapcat     
                   (fn [doi]
                     (let [url (str "http://dx.doi.org/" doi)
-                          result (try-try-again {:sleep 1000 :tries 2}
-                             #(client/get url))
+                          result (try (try-try-again {:sleep 1000 :tries 2}
+                                       #(client/get url))
+                                   (catch Exception _ nil))
                           ; drop first, it's always "dx.doi.org"
                           redirects (rest (:trace-redirects result))
-                          all-domains (map (fn [url]
-                                          (let [host (.getHost (new java.net.URL url))
-                                                [subdomain true-domain etld] (util/get-main-domain host)
-                                                domain-part (str true-domain "." etld)]
-                                              domain-part)) redirects)
-                          all-domains (into #{} all-domains)]
-                      all-domains))
+                          all-domains (when result (into #{}
+                                                         (map (fn [url]
+                                                          (let [host (.getHost (new java.net.URL url))
+                                                                [subdomain true-domain etld] (util/get-main-domain host)
+                                                                domain-part (str true-domain "." etld)]
+                                                              domain-part)) redirects)))]
+                      (or all-domains [])))
                   dois)
         unique-domains (into #{} domains)]
     (locking *out* (prn "Domains for member" member-id "original" (count domains) "unique:" unique-domains "from" dois))
