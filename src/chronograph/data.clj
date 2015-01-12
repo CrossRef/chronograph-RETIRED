@@ -37,8 +37,6 @@
 
 (def member-domains (get-member-domains))
 
-(prn "member domains" member-domains)
-
 (defn domain-whitelisted? [domain] (not (member-domains domain)))
 
 (defn get-type-id-by-name [type-name]
@@ -49,7 +47,7 @@
 
 (defn insert-event [doi type-id source-id date cnt arg1 arg2 arg3]
   (try
-    (k/exec-raw ["INSERT INTO events (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?"
+    (k/exec-raw ["INSERT INTO events_isam (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?"
                  [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
                   (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
     (catch Exception e (prn "EXCEPTION" e))))
@@ -74,7 +72,7 @@
   "Insert chunk of inputs to insert-event"
   [chunk]
   (kdb/transaction
-    (prn "chunk insert-doi-resolutions-count")
+    (prn "chunk insert-events-chunk")
     (doseq [args chunk]
       (apply insert-event args))))
 
@@ -303,14 +301,19 @@
 (defn get-resolutions
   "Get the first and last redirects or nil if it doesn't exist."
   [the-doi]
-  (let [url (crdoi/normalise-doi the-doi)
-        result (try-try-again {:sleep 5000 :tries :unlimited} #(client/get url {:follow-redirects true :throw-exceptions false}))
-        redirects (:trace-redirects result)
-        first-redirect (second redirects)
-        last-redirect (last redirects)
-        ok (= 200 (:status result))]
-        (when ok
-          [first-redirect last-redirect])))
+  (try 
+    (let [url (crdoi/normalise-doi the-doi)
+          result (try-try-again {:sleep 5000 :tries 2} #(client/get url
+                                                         {:follow-redirects true
+                                                          :throw-exceptions false
+                                                          :headers {"Referer" "chronograph.crossref.org"}}))
+          redirects (:trace-redirects result)
+          first-redirect (second redirects)
+          last-redirect (last redirects)
+          ok (= 200 (:status result))]
+          (when ok
+            [first-redirect last-redirect]))
+    (catch Exception _ nil)))
 
 (defn time-range
   "Return a lazy sequence of DateTimes from start to end, incremented
@@ -385,26 +388,28 @@
                           [(if (not (member-domains domain)) domain "member domain") dates]) interpolated)]
           (if redact? redacted interpolated)))
   
-; TODO for now not being used until the DOI denorm question is resolved.
-; (defn run-doi-resolution []
-;   ; TODO only run since given date
-;   (let [dois (k/select d/doi (k/where (= nil :resolved)))]
-;     (prn (count dois) "to resolve")
-;     (doseq [doi-info dois]
-      
-;       (let [the-doi (:doi doi-info)
-;             resolutions (get-resolutions the-doi)]
-;         ; Resolutions may not work (that's the point).
-;         (when resolutions
-;           (let [[first-resolution ultimate-resolution] resolutions]
-;             (k/update d/doi (k/where (= :doi the-doi))
-;                                           (k/set-fields {:firstResolution first-resolution
-;                                                          :ultimateResolution ultimate-resolution
-;                                                          :resolved (coerce/to-sql-date (t/now))}))))))))
+(defn run-doi-resolution []
+  ; Insert recently published.
+  (let [issued-type-id (get-type-id-by-name "issued")
+        resolved-type-id (get-type-id-by-name "first-resolution-test")
+        source-id (get-source-id-by-name "CrossRefRobot")
+        yesterday (t/minus (t/now) (t/weeks 1))
+        recently-published (k/select d/events-isam (k/where {:type issued-type-id :event [>= (coerce/to-sql-date yesterday)]}))]
+    (doseq [event recently-published]
+      (prn "Add to resolutions table" (:doi event))
+      (k/exec-raw ["INSERT INTO resolutions (doi) VALUES (?) ON DUPLICATE KEY UPDATE doi = doi"
+                 [(:doi event)]]))
+    
+    (let [to-resolve (k/select d/resolutions (k/where {:resolved false}))
+          dois (map :doi to-resolve)]
+      (doseq [doi dois]
+        ; Try to resolve. It it works, add the event.
+        (let [resolutions (get-resolutions doi)]
+          (when resolutions
+            (prn "Insert" doi)
+            (insert-event doi resolved-type-id source-id (t/now) 1 nil nil nil)
+            (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true}))))))))
 
-; (defn get-doi-info [the-doi]
-;   (let [info (first (k/select d/doi (k/where (= :doi the-doi))))]
-;   info))
 
 (defn get-doi-facts
   "Get 'facts' (i.e. non-time-based events)"

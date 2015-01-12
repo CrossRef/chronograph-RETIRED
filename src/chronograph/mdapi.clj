@@ -122,9 +122,7 @@
 
 (dotimes [w-id 50] ; 50 seems to be a good value
    (go
-     (prn "Wait")
      (loop [job (<!! member-channel)]
-       (prn w-id "Go")
        (when job
          (process-member job)
          (recur (<!! member-channel))))))

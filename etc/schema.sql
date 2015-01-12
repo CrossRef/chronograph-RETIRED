@@ -45,7 +45,7 @@ CREATE TABLE events (
     arg3 TEXT,
 
     UNIQUE(doi, source, type)
-    );
+);
 
 CREATE INDEX event_doi_source_type on events (doi, source, type);
 CREATE INDEX event_doi on events (doi);
@@ -65,10 +65,39 @@ CREATE TABLE event_timelines_isam (
     timeline MEDIUMBLOB,
 
     UNIQUE(doi, source, type)
-);
+) ENGINE = myisam;
 
 CREATE INDEX event_timelines_doi_source_type_isam ON event_timelines_isam (doi, source, type);
 CREATE INDEX event_timelines_doi_isam ON event_timelines_isam (doi);
+
+CREATE TABLE events_isam (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    doi VARCHAR(700),
+
+    -- number of events that this represents
+    -- normally 1, but this can be an aggregate for something else
+    count INTEGER NOT NULL DEFAULT 1,
+
+    -- datetime of event
+    -- null for 'all time'
+    event DATETIME NULL,
+
+    -- datetime this was inserted
+    inserted DATETIME NOT NULL,
+
+    source INT NOT NULL REFERENCES sources(id) ,
+    type INT NOT NULL REFERENCES types(id),
+
+    arg1 TEXT,
+    arg2 TEXT,
+    arg3 TEXT,
+
+    UNIQUE(doi, source, type)
+) ENGINE = myisam;
+
+CREATE INDEX event_doi_source_type_isam on events_isam (doi, source, type);
+CREATE INDEX event_type_event_isam on events_isam (type, event);
+CREATE INDEX event_doi_isam on events_isam (doi);
 
 -- Storage of entire timeline per referrer domain.
 CREATE TABLE referrer_domain_timelines (
@@ -148,6 +177,12 @@ CREATE TABLE member_domains (
     member_id INTEGER NOT NULL,
     domain VARCHAR(128) NOT NULL,
     UNIQUE(member_id, domain)
+);
+
+CREATE TABLE resolutions (
+    doi VARCHAR(700) PRIMARY KEY,
+    resolved BOOL default false,
+    UNIQUE(doi)
 );
 
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");

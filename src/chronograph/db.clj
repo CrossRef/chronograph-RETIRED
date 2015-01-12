@@ -54,6 +54,28 @@
         (assoc input
           :event (when-let [d (:event input)] (coerce-sql-date d)))))))
 
+(k/defentity events-isam
+  (k/table "events_isam")
+  (k/pk :id)
+  (k/entity-fields
+    :id
+    :doi
+    :count
+    :event
+    :inserted
+    :source
+    :type
+    :arg1
+    :arg2
+    :arg3)
+  (k/belongs-to sources {:fk :source})
+  (k/belongs-to types {:fk :type})
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :event (when-let [d (:event input)] (coerce-sql-date d)))))))
+
 (defn coerce-timeline-in [timeline]
   "Coerce a timeline to Java Date from Joda Date, so it can be serialized"
   (reduce-kv (fn [m k v] (assoc m (coerce/to-date k) v)) {} timeline))
@@ -192,3 +214,10 @@
   (k/entity-fields
     ["member_id" :member-id]
     :domain))
+
+
+(k/defentity resolutions
+  (k/table "resolutions")
+  (k/pk :doi)
+  (k/entity-fields
+    :doi :resolved))

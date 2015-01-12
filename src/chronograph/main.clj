@@ -21,9 +21,9 @@
       (prn "DOI import new updates")
       (mdapi/run-doi-extraction-new-updates))
   
-  ; (when (= (first args) "resolve")
-  ;     (prn "DOI Resolution")
-  ;     (d/run-doi-resolution))
+  (when (= (first args) "resolve")
+      (prn "DOI Resolution")
+      (d/run-doi-resolution))
   
   (when (= (first args) "import-laskuri")
     (prn "Import local Laskuri data grouped by DOI")
