@@ -1,0 +1,17 @@
+arxiv.org
+cranfield.ac.uk
+crossref.org
+doi.org
+doidestek.com
+google.com
+google.it
+handle.net
+plym.ac.uk
+purl.org
+soton.ac.uk
+unesco.org
+usda.gov
+usgs.gov
+wikiversity.org
+wolfram.com
+wordpress.com
