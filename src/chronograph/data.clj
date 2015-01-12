@@ -407,7 +407,7 @@
         (let [resolutions (get-resolutions doi)]
           (when resolutions
             (prn "Insert" doi)
-            (insert-event doi resolved-type-id source-id (t/now) 1 nil nil nil)
+            (insert-event doi resolved-type-id source-id (t/now) 1 (first resolutions) (second resolutions) nil)
             (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true}))))))))
 
 
@@ -430,7 +430,7 @@ events))
                (k/with d/sources)
                (k/with d/types)
                (k/where (and (not= :event nil) (= :doi doi)))
-               (k/order :events-isam.event)
+               (k/order :events_isam.event)
                (k/fields [:sources.name :source-name]
                           [:types.name :type-name]))]
     events))
