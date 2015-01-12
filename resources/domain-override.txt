@@ -18,8 +18,11 @@ noaa.gov
 nsw.gov.au
 ornl.gov
 pa.gov.br
+plos.org
+plosone.org
 plym.ac.uk
 purl.org
+scribd.com
 soton.ac.uk
 sp.gov.br
 tubitak.gov.tr
@@ -27,6 +30,9 @@ ulakbim.gov.tr
 unesco.org
 usda.gov
 usgs.gov
+va.gov
 wikiversity.org
 wolfram.com
 wordpress.com
+youtu.be
+youtube.com
