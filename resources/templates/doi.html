@@ -20,10 +20,13 @@
     <tr>
         <td>{{fact.type-name}}</td>
         <td>{{fact.count}}</td>
-        <td>{{fact.source-name}}</td>
-        <td>{% if fact.arg1 %}{{fact.arg1desc}}: {{fact.arg1}} {% endif %}</td>
-        <td>{% if fact.arg2 %}{{fact.arg2desc}}: {{fact.arg2}} {% endif %}</td>
-        <td>{% if fact.arg3 %}{{fact.arg3desc}}: {{fact.arg3}} {% endif %}</td>
+        <td>{{fact.source-name}}
+            <dl class="extra-info">
+                {% if fact.arg1 %}<dt>{{fact.arg1desc}}:</dt><dd>{{fact.arg1}}</dd>{% endif %}
+                {% if fact.arg2 %}<dt>{{fact.arg2desc}}:</dt><dd>{{fact.arg2}}</dd>{% endif %}
+                {% if fact.arg3 %}<dt>{{fact.arg3desc}}:</dt><dd>{{fact.arg3}}</dd>{% endif %}
+            </dl>
+        </td>
         </tr>
     {% endfor %}
     
@@ -31,10 +34,13 @@
     <tr>
         <td>{{event.type-name}}</td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{event.source-name}}</td>
-        <td>{% if event.arg1 %}{{event.arg1desc}}: {{event.arg1}} {% endif %}</td>
-        <td>{% if event.arg2 %}{{event.arg2desc}}: {{event.arg2}} {% endif %}</td>
-        <td>{% if event.arg3 %}{{event.arg3desc}}: {{event.arg3}} {% endif %}</td>
+        <td>{{event.source-name}}
+            <dl class="extra-info">
+                {% if event.arg1 %}<dt>{{event.arg1desc}}:</dt><dd>{{event.arg1}}</dd>{% endif %}
+                {% if event.arg2 %}<dt>{{event.arg2desc}}:</dt><dd>{{event.arg2}}</dd>{% endif %}
+                {% if event.arg3 %}<dt>{{event.arg3desc}}:</dt><dd>{{event.arg3}}</dd>{% endif %}
+            </dl>
+        </td>
     </tr>
     {% endfor %}
     </table>

@@ -343,3 +343,7 @@ body {
 .year-marker-small text {
     font-size: 0.6rem;
 }
+
+.extra-info {
+  font-size: 0.8em;
+}
