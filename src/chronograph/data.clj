@@ -414,7 +414,7 @@
 (defn get-doi-facts
   "Get 'facts' (i.e. non-time-based events)"
   [doi]
-  (let [events (k/select d/events 
+  (let [events (k/select d/events-isam
                (k/with d/sources)
                (k/with d/types)
                (k/where (and (= :event nil) (= :doi doi)))
@@ -426,7 +426,7 @@ events))
 (defn get-doi-events 
   "Get 'events' (i.e. events with a date stamp)"
   [doi]
-  (let [events (k/select d/events 
+  (let [events (k/select d/events-isam
                (k/with d/sources)
                (k/with d/types)
                (k/where (and (not= :event nil) (= :doi doi)))
@@ -490,7 +490,7 @@ events))
 (defn delete-events-for-type [type-name]
   (let [type-id (get-type-id-by-name type-name)]
     (prn "Delete events for type" type-name type-id)
-    (k/delete d/events (k/where (= :type type-id)))))
+    (k/delete d/events-isam (k/where (= :type type-id)))))
 
 (defn delete-domain-events-for-type [type-name]
   (let [type-id (get-type-id-by-name type-name)]
