@@ -18,13 +18,6 @@ noaa.gov
 nsw.gov.au
 ornl.gov
 pa.gov.br
-plos.org
-plosone.org
-plosbiology.org
-plosgenetics.org
-ploscompbiol.org
-plospathogens.org
-plosntds.org
 plym.ac.uk
 purl.org
 scribd.com

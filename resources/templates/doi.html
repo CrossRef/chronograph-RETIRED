@@ -4,8 +4,11 @@
 <div class="container">
 <div class="row">
   <div class="col-md-12">
-    <h1>DOI: {{doi}}</h1>
+    
+    {% if extra-info.title %}<h1>{{extra-info.title}}</h1>{% endif %}
+    <h2><a href="http://dx.doi.org/{{doi}}">{{doi}}</a></h2>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
+    
 
     <table class="table table-striped">
     <thead>

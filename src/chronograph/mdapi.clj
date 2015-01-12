@@ -31,6 +31,14 @@
 (def updated-type-id (data/get-type-id-by-name "updated"))
 (def metadata-source-id (data/get-source-id-by-name "CrossRefMetadata"))
 
+(defn get-metadata [doi]
+  (try 
+    (let [response (client/get (str works-endpoint "/" doi) {:as :json})
+          message (-> response :body :message)
+          title (first (:title message))]
+      {:title title})
+    (catch Exception _ {})))
+
 (defn fetch-and-parse [url]
   (prn "GET URL" url)
   (let [response (try-try-again {:sleep 5000 :tries :unlimited} #(client/get url {:as :json}))

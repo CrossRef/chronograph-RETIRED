@@ -1,7 +1,8 @@
 (ns chronograph.handlers
   (:require [chronograph.data :as d]
             [chronograph.db :as db]
-            [chronograph.util :as util])
+            [chronograph.util :as util]
+            [chronograph.mdapi :as mdapi])
   (:require [clj-time.core :as t])
   (:require [compojure.core :refer [context defroutes GET ANY POST]]
             [compojure.handler :as handler]
@@ -195,6 +196,9 @@
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
+                     ; get extra info in
+                     extra-info (mdapi/get-metadata doi)
+                     
                      render-context {:first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
@@ -208,7 +212,7 @@
                                      :facts facts
                                      ; :facts-by-type facts-by-type
                                      :timelines timelines-with-extras
-                                     }]
+                                     :extra-info extra-info}]
                (render-file "templates/doi.html" render-context))))
 
 (defresource domains-redirect
