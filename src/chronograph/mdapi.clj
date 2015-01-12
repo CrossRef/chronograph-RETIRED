@@ -93,7 +93,7 @@
 
 (defn process-member [member-id]
   ; Do each member in background concurrently
-  (prn "Member id" member-id)
+  (locking *out* (prn "Member id" member-id))
   (let [works-url (str members-endpoint "/" member-id "/works" \? (client/generate-query-string {:sample sample-size :rows sample-size}))
         works-results (try-try-again {:sleep 5000 :tries :unlimited}
                #(client/get works-url {:as :json}))
@@ -115,7 +115,7 @@
                       all-domains))
                   dois)
         unique-domains (into #{} domains)]
-    (prn "Domains for member" member-id "original" (count domains) "unique:" unique-domains)
+    (locking *out* (prn "Domains for member" member-id "original" (count domains) "unique:" unique-domains "from" dois))
     (data/insert-member-domains member-id unique-domains)))
 
 (dotimes [w-id 50] ; 50 seems to be a good value
