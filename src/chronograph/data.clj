@@ -18,6 +18,7 @@
 (defn insert-member-domains [member-id domains]
   (kdb/transaction
     (doseq [domain domains]
+      (prn "insert" member-id (count domains))
       (k/exec-raw ["INSERT INTO member_domains (member_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = domain"
                  [member-id domain]]))))
 

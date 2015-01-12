@@ -98,27 +98,31 @@
         works-results (try-try-again {:sleep 5000 :tries :unlimited}
                #(client/get works-url {:as :json}))
         works (-> works-results :body :message :items)
-        dois (map :DOI works)]
-    (doseq [doi dois]
-      (let [url (str "http://dx.doi.org/" doi)
-            result (try-try-again {:sleep 5000 :tries :unlimited}
-               #(client/get url))
-            ; drop first, it's always "dx.doi.org"
-            redirects (rest (:trace-redirects result))
-            all-domains (map (fn [url]
-                            (let [host (.getHost (new java.net.URL url))
-                                  [subdomain true-domain etld] (util/get-main-domain host)
-                                  domain-part (str true-domain "." etld)]
-                                domain-part)) redirects)
-            all-domains (into #{} all-domains)]
-        (prn "Domains for DOI" doi all-domains)
-              (data/insert-member-domains member-id all-domains)))))
+        dois (map :DOI works)
+        domains (mapcat     
+                  (fn [doi]
+                    (let [url (str "http://dx.doi.org/" doi)
+                          result (try-try-again {:sleep 5000 :tries :unlimited}
+                             #(client/get url))
+                          ; drop first, it's always "dx.doi.org"
+                          redirects (rest (:trace-redirects result))
+                          all-domains (map (fn [url]
+                                          (let [host (.getHost (new java.net.URL url))
+                                                [subdomain true-domain etld] (util/get-main-domain host)
+                                                domain-part (str true-domain "." etld)]
+                                              domain-part)) redirects)
+                          all-domains (into #{} all-domains)]
+                      all-domains))
+                  dois)
+        unique-domains (into #{} domains)]
+    (prn "Domains for member" member-id "original" (count domains) "unique:" unique-domains)
+    (data/insert-member-domains member-id unique-domains)))
 
-(dotimes [_ 50]
+(dotimes [w-id 50] ; 50 seems to be a good value
    (go
      (prn "Wait")
      (loop [job (<!! member-channel)]
-       (prn "Go")
+       (prn w-id "Go")
        (when job
          (process-member job)
          (recur (<!! member-channel))))))
