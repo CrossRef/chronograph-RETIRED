@@ -430,7 +430,7 @@ events))
                (k/with d/sources)
                (k/with d/types)
                (k/where (and (not= :event nil) (= :doi doi)))
-               (k/order :events.event)
+               (k/order :events-isam.event)
                (k/fields [:sources.name :source-name]
                           [:types.name :type-name]))]
     events))
