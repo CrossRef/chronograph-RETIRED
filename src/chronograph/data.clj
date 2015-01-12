@@ -22,10 +22,22 @@
       (k/exec-raw ["INSERT INTO member_domains (member_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = domain"
                  [member-id domain]]))))
 
+(defn get-domain-override
+  "Load the domain override file (claimed publisher domains that shouldnt' be treated as such)"
+  []
+  (with-open [reader (clojure.java.io/reader (clojure.java.io/resource "domain-override.txt"))]
+    (let [lines (line-seq reader)
+          domain-list (into #{} lines)]
+      domain-list)))
+
 (defn get-member-domains []
-  (into #{} (map :domain (k/select d/member-domains))))
+  (let [overrides (get-domain-override)
+        domains (into #{} (map #(-> % :domain .toLowerCase) (k/select d/member-domains)))]
+    (into #{} (remove overrides domains))))
 
 (def member-domains (get-member-domains))
+
+(prn "member domains" member-domains)
 
 (defn domain-whitelisted? [domain] (not (member-domains domain)))
 

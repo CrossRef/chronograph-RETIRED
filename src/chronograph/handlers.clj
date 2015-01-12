@@ -224,9 +224,9 @@
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
                (let [[subdomain true-domain etld] (util/get-main-domain host)
-                     domain (str true-domain "." etld)
+                     domain (.toLowerCase (str true-domain "." etld))
                      
-                     whitelisted (d/domain-whitelisted? true-domain)
+                     whitelisted (d/domain-whitelisted? domain)
                      
                      events (d/get-domain-events domain)
                      facts (d/get-domain-facts domain)
@@ -277,9 +277,9 @@
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
                (let [[subdomain true-domain etld] (util/get-main-domain host)
-                     domain (str true-domain "." etld)
+                     domain (.toLowerCase (str true-domain "." etld))
                      
-                     whitelisted (d/domain-whitelisted? true-domain)
+                     whitelisted (d/domain-whitelisted? domain)
                      
                      events (d/get-subdomain-events host)
                      facts (d/get-subdomain-facts host)
