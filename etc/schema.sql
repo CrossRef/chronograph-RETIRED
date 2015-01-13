@@ -185,6 +185,14 @@ CREATE TABLE resolutions (
     UNIQUE(doi)
 );
 
+
+CREATE TABLE crossmarked_dois (
+    doi VARCHAR(700) PRIMARY KEY,
+    metadata TEXT,
+    UNIQUE(doi)
+);
+
+
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");
 insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution Logs");
 insert into sources (ident, name) values ("CrossRefRobot", "CrossRef Robot");

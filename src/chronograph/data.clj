@@ -502,15 +502,20 @@ events))
     (prn "Delete referrer subdomain events for type" type-name type-id)
     (k/delete d/referrer-subdomain-events (k/where (= :type type-id)))))
 
-(defn get-subdomains-for-domain [domain]
-    (let [subdomains (k/select d/referrer-subdomain-timelines
-                     (k/fields :host)
+(defn get-subdomains-for-domain [domain with-count?]
+    (let [count-type (get-type-id-by-name "total-referrals-subdomain")
+          subdomains (k/select d/referrer-subdomain-timelines
+                     ; (k/fields :host)
                      (k/group :host)
                      ; (k/aggregate (sum :count) :cnt)
                      (k/where (= :domain domain))
                      ; (k/order :cnt :desc)
-                     )]
-      subdomains))
-
-
-
+                     )
+          ; TODO could this be a join?
+          with-count (map (fn [subdomain]
+                             (assoc subdomain :count
+                                            (-> (k/select d/referrer-subdomain-events
+                                                  (k/where {:subdomain (:host subdomain)
+                                                            :type count-type}))
+                                                first :count))) subdomains)] 
+      (if with-count with-count subdomains)))

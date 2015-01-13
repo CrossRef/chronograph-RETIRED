@@ -253,7 +253,7 @@
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
-                     subdomains (d/get-subdomains-for-domain true-domain)
+                     subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
                      render-context {:first-date first-date
                                      :last-date last-date
@@ -304,7 +304,7 @@
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
-                     subdomains (d/get-subdomains-for-domain true-domain)
+                     subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
                      render-context {:first-date first-date
                                      :last-date last-date

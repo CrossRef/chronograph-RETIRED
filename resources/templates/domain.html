@@ -125,10 +125,10 @@
 
     {% if subdomains %}
     <h1>Subdomains</h1>
+    <p>Shown with total referrals where available.</p>
     <ul>
     {% for subdomain in subdomains %}
-    <li><a href="/subdomains/{{subdomain.host}}">{{subdomain.host}}: {{subdomain.cnt}}</a></li>
-    {% endfor %}
+    <li><a href="/subdomains/{{subdomain.host}}">{{subdomain.host}}</a> {% if subdomain.count %}<span class="badge">{{subdomain.count}}</span>{% endif %}</li>    {% endfor %}
     </ul>
     {% endif %}
  </div>

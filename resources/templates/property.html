@@ -4,42 +4,9 @@
 <div class="container">
 <div class="row">
   <div class="col-md-12">
-    <h1>Subdomain: {{subdomain}}</h1>
-    <p>Main domain: <a href="/domains/{{domain}}">{{domain}}</a>.</p>
+    <h1>Property: {{property}}</h1>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
 
-    {% if not whitelisted %}
-    <div class="alert alert-danger" role="alert">
-      <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
-      <span class="sr-only">Error:</span>
-      <strong>We're very sorry</strong> but you can't view stats for this domain. Please read <a href="/member-domains">why it has been redacted</a> and contact jwass@crossref.org if you want to put this domain on the whitelist.
-    </div>
-    {% else %}
-
-    <table class="table table-striped">
-    <thead>
-    <tr>
-        <th>type</th>
-        <th>date / count</th>
-        <th>from</th>
-    </tr>
-    </thead>
-    {% for fact in facts %}
-    <tr>
-        <td>{{fact.type-name}}</td>
-        <td>{{fact.count}}</td>
-        <td>{{fact.source-name}}</td>
-        </tr>
-    {% endfor %}
-    
-    {% for event in milestone-events %}
-    <tr>
-        <td>{{event.type-name}}</td>
-        <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{event.source-name}}</td>
-    </tr>
-    {% endfor %}
-    </table>
     {% if first-date last-date %}
     <script>
     $(function(){
@@ -126,19 +93,14 @@
 
     {% if subdomains %}
     <h1>Subdomains</h1>
-    <p>Shown with total referrals where available.</p>
     <ul>
     {% for subdomain in subdomains %}
-    <li><a href="/subdomains/{{subdomain.host}}">{{subdomain.host}}</a> {% if subdomain.count %}<span class="badge">{{subdomain.count}}</span>{% endif %}</li>
+    <li><a href="/subdomains/{{subdomain.host}}">{{subdomain.host}}: {{subdomain.cnt}}</a></li>
     {% endfor %}
     </ul>
     {% endif %}
  </div>
 
- {% endif %}
-      </div>
- 
-</div>  
 
 {% endblock %}
 
