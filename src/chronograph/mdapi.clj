@@ -112,7 +112,7 @@
                   (fn [doi]
                     (let [url (str "http://dx.doi.org/" doi)
                           result (try (try-try-again {:sleep 1000 :tries 2}
-                                       #(client/get url))
+                                       #(client/get url  {:socket-timeout 5000  :conn-timeout 5000 :throw-exceptions true}))
                                    (catch Exception _ nil))
                           ; drop first, it's always "dx.doi.org"
                           redirects (rest (:trace-redirects result))
