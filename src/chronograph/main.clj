@@ -1,7 +1,8 @@
 (ns chronograph.main
   (:require [chronograph.data :as d]
-            [chronograph.mdapi :as mdapi])
-  (:require [chronograph.import.laskuri :as laskuri])
+            [chronograph.mdapi :as mdapi]
+            [chronograph.import.laskuri :as laskuri]
+            [chronograph.import.resolver :as resolver])
   (:require [clojure.java.io :refer [reader]])
   (:require [clojure.edn :as edn])
   (:require [clj-time.format :as format]))
@@ -23,7 +24,7 @@
   
   (when (= (first args) "resolve")
       (prn "DOI Resolution")
-      (d/run-doi-resolution))
+      (resolver/run-doi-resolution))
   
   (when (= (first args) "import-laskuri")
     (prn "Import local Laskuri data grouped by DOI")
