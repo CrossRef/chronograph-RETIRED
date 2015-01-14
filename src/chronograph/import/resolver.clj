@@ -14,7 +14,7 @@
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
   (:require [robert.bruce :refer [try-try-again]])
-  (:require [clojure.core.async :as async :refer [<! <!! >!! >! go chan close! merge]]))
+  (:require [clojure.core.async :as async :refer [<! <!! >!! >! go chan close!]]))
 
 (def doi-channel (chan))
 
@@ -33,6 +33,8 @@
           result (try-try-again {:sleep 5000 :tries 2} #(client/get url
                                                          {:follow-redirects true
                                                           :throw-exceptions false
+                                                          :socket-timeout 5000
+                                                          :conn-timeout 5000
                                                           :headers {"Referer" "chronograph.crossref.org"}}))
           redirects (:trace-redirects result)
           first-redirect (second redirects)
@@ -82,7 +84,7 @@
     
     (let [to-resolve (k/select d/resolutions (k/where {:resolved false}))
           dois (map :doi to-resolve)
-          resolve-channel (merge doi-resolve-channels)]
+          resolve-channel (async/merge doi-resolve-channels)]
       
       ; Stick the DOIs on a channel for them to be resolved asynchronously and returned via doi-resolve-channels.
       (go
