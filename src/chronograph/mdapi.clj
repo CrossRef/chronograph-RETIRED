@@ -128,7 +128,7 @@
     (locking *out* (prn "Domains for member" member-id "original" (count domains) "unique:" unique-domains "from" dois))
     (data/insert-member-domains member-id unique-domains)))
 
-(dotimes [w-id 50] ; 50 seems to be a good value
+(dotimes [w-id 10] ; there are other goroutines running, so not too many
    (go
      (loop [job (<!! member-channel)]
        (when job
