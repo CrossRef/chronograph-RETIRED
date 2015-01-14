@@ -30,7 +30,7 @@
   (try 
     (locking *out* (prn "Start resolve" doi))
     (let [url (crdoi/normalise-doi doi)
-          result (try-try-again {:sleep 5000 :tries 2} #(client/get url
+          result (try-try-again {:sleep 5000 :tries 2} #(client/head url
                                                          {:follow-redirects true
                                                           :throw-exceptions false
                                                           :socket-timeout 5000
@@ -54,11 +54,11 @@
 
 
 ; Create a load of return channels for resolved DOIs.
-(def num-return-chans 20)
+(def num-return-chans 50)
 
 (defn run-doi-resolution []
   ; Insert recently published.
-  (let [yesterday (t/minus (t/now) (t/weeks 1))
+  (let [yesterday (t/minus (t/now) (t/days 1))
         recently-published (k/select d/events-isam (k/where {:type issued-type-id :event [>= (coerce/to-sql-date yesterday)]}))]
 
     (doseq [event recently-published]
