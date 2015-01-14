@@ -17,16 +17,18 @@
   (:require [clojure.core.async :as async :refer [<! <!! >!! >! go chan close! merge]]))
 
 (def doi-channel (chan))
-(def dois-resolved-channel (chan))
 
 (def issued-type-id (data/get-type-id-by-name "issued"))
 (def resolved-type-id (data/get-type-id-by-name "first-resolution-test"))
 (def source-id (data/get-source-id-by-name "CrossRefRobot"))
 
+(defn prnl [& args] (locking *out* (apply prn args)))
+
 (defn get-resolutions
   "Get the first and last redirects or nil if it doesn't exist."
   [doi]
   (try 
+    (locking *out* (prn "Start resolve" doi))
     (let [url (crdoi/normalise-doi doi)
           result (try-try-again {:sleep 5000 :tries 2} #(client/get url
                                                          {:follow-redirects true
@@ -36,6 +38,7 @@
           first-redirect (second redirects)
           last-redirect (last redirects)
           ok (= 200 (:status result))]
+          (locking *out* (prn "Finish resolve" doi ok))
           (when ok
             [first-redirect last-redirect]))
     (catch Exception _ nil)))
@@ -57,21 +60,21 @@
   (go
      (loop [doi (<! doi-channel)]
        (when doi
-         (locking *out* (prn "Get resolutions for" doi))
-         (let [result (get-resolutions doi)]
-           (if result
-             (let [[first-redirect last-redirect] result]
-                 (locking *out* (prn "Return to channel" ch doi))
-                 (>!! ch [doi first-redirect last-redirect]))
-             (do
-               (locking *out* (prn "Close ch" ch))
-               (close! ch))))
-         (recur (<!! doi-channel))))))
+             (let [result (get-resolutions doi)]
+               (when result
+                 (let [[first-redirect last-redirect] result]
+                     (>! ch [doi first-redirect last-redirect]))))
+             (recur (<! doi-channel))))
+       
+     ; When loop is over, close output channel.
+     (prnl "Close channel" ch)
+     (close! ch)))
 
 (defn run-doi-resolution []
   ; Insert recently published.
   (let [yesterday (t/minus (t/now) (t/weeks 1))
         recently-published (k/select d/events-isam (k/where {:type issued-type-id :event [>= (coerce/to-sql-date yesterday)]}))]
+
     (doseq [event recently-published]
       (prn "Add to resolutions table" (:doi event))
       (k/exec-raw ["INSERT INTO resolutions (doi) VALUES (?) ON DUPLICATE KEY UPDATE doi = doi"
@@ -82,21 +85,17 @@
           resolve-channel (merge doi-resolve-channels)]
       
       ; Stick the DOIs on a channel for them to be resolved asynchronously and returned via doi-resolve-channels.
-      ; Bit of a hack - put a non-resolvable DOI on the channel to start the worker off.
-      ; Otherwise they never get started and never close their doi-resolve-channels.
-      (doseq [_ (range num-return-chans)]
-        (>!! doi-channel "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"))
-      
       (go
         (doseq [doi dois]
-          (>!! doi-channel doi))
+          (locking *out* (prn "Spool" doi))
+          (>! doi-channel doi))
         (prn "Closing DOI channel")
         (close! doi-channel))
-      
+            
       ; Get resolutions from the merged doi-resolve-channel and insert them.
       ; TODO maybe batch into transactions?
       (loop [resolution (<!! resolve-channel)]
         (when resolution
           (let [[doi first-redirect last-redirect] resolution]
             (insert-resolutions doi first-redirect last-redirect))
-          (recur (<!! dois-resolved-channel)))))))
+          (recur (<!! resolve-channel)))))))
