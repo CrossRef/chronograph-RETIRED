@@ -2,7 +2,7 @@
   (:require [chronograph.data :as d]
             [chronograph.db :as db]
             [chronograph.util :as util]
-            [chronograph.mdapi :as mdapi])
+            [chronograph.import.mdapi :as mdapi])
   (:require [clj-time.core :as t])
   (:require [compojure.core :refer [context defroutes GET ANY POST]]
             [compojure.handler :as handler]

@@ -54,23 +54,7 @@
 
 
 ; Create a load of return channels for resolved DOIs.
-(def num-return-chans 10)
-(def doi-resolve-channels (apply vector (map (fn [i] (chan)) (range num-return-chans))))
-
-; Run concurrent resolvers that poll from the doi-channel and send back results back on their own channels.
-(doseq [ch doi-resolve-channels]
-  (go
-     (loop [doi (<! doi-channel)]
-       (when doi
-             (let [result (get-resolutions doi)]
-               (when result
-                 (let [[first-redirect last-redirect] result]
-                     (>! ch [doi first-redirect last-redirect]))))
-             (recur (<! doi-channel))))
-       
-     ; When loop is over, close output channel.
-     (prnl "Close channel" ch)
-     (close! ch)))
+(def num-return-chans 20)
 
 (defn run-doi-resolution []
   ; Insert recently published.
@@ -84,8 +68,24 @@
     
     (let [to-resolve (k/select d/resolutions (k/where {:resolved false}))
           dois (map :doi to-resolve)
+          doi-resolve-channels (apply vector (map (fn [i] (chan)) (range num-return-chans)))
           resolve-channel (async/merge doi-resolve-channels)]
       
+      ; Run concurrent resolvers that poll from the doi-channel and send back results back on their own channels.
+      (doseq [ch doi-resolve-channels]
+        (go
+           (loop [doi (<! doi-channel)]
+             (when doi
+                   (let [result (get-resolutions doi)]
+                     (when result
+                       (let [[first-redirect last-redirect] result]
+                           (>! ch [doi first-redirect last-redirect]))))
+                   (recur (<! doi-channel))))
+             
+           ; When loop is over, close output channel.
+           (prnl "Close channel" ch)
+           (close! ch)))
+            
       ; Stick the DOIs on a channel for them to be resolved asynchronously and returned via doi-resolve-channels.
       (go
         (doseq [doi dois]

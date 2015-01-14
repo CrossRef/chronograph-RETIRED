@@ -1,6 +1,6 @@
 (ns chronograph.main
   (:require [chronograph.data :as d]
-            [chronograph.mdapi :as mdapi]
+            [chronograph.import.mdapi :as mdapi]
             [chronograph.import.laskuri :as laskuri]
             [chronograph.import.resolver :as resolver])
   (:require [clojure.java.io :refer [reader]])
