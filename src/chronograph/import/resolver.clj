@@ -60,9 +60,9 @@
   ; Insert recently published.
   (let [yesterday (t/minus (t/now) (t/days 1))
         today (t/plus (t/now) (t/days 1))
-        recently-published (k/select d/events-isam (k/where {:type issued-type-id
-                                                             :event [>= (coerce/to-sql-date yesterday)]
-                                                             :event [<= (coerce/to-sql-date today)]}))]
+        recently-published (k/select d/events-isam (k/where (and (= :type issued-type-id)
+                                                             (>= :event (coerce/to-sql-date yesterday))
+                                                             (<= :event (coerce/to-sql-date today)))))]
 
     (doseq [event recently-published]
       (prn "Add to resolutions table" (:doi event))
