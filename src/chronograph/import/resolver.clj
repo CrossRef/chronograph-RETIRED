@@ -36,20 +36,21 @@
                                                           :socket-timeout 5000
                                                           :conn-timeout 5000
                                                           :headers {"Referer" "chronograph.crossref.org"}}))
-          redirects (:trace-redirects result)
-          first-redirect (second redirects)
+          ; Drop the initial dx.doi.org
+          redirects (rest (:trace-redirects result))
+          first-redirect (first redirects)
           last-redirect (last redirects)
           ok (= 200 (:status result))]
           (locking *out* (prn "Finish resolve" doi ok))
           (when ok
-            [first-redirect last-redirect]))
-    (catch Exception _ nil)))
+            [first-redirect last-redirect (count redirects)]))
+    (catch Exception ex (do (prn "Ex" ex) nil))))
 
 (defn insert-resolutions
   [doi first-direct last-redirect]
   (locking *out* (prn "Insert resolution" doi))
-    (let [resolutions (get-resolutions doi)]
-        (data/insert-event doi resolved-type-id source-id (t/now) 1 (first resolutions) (second resolutions) nil)
+    (let [[first-redirect last-redirect num-redirects] (get-resolutions doi)]
+        (data/insert-event doi resolved-type-id source-id (t/now) 1 first-redirect last-redirect (str num-redirects))
         (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true}))))
 
 

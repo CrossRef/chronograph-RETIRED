@@ -1,0 +1,6 @@
+# Run this with cron
+# 0 0 * * * /home/deploy/chronograph/daily.sh
+
+cd /home/deploy/chronograph
+lein run new-updates
+lein run resolve
