@@ -196,6 +196,7 @@ CREATE TABLE crossmarked_dois (
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");
 insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution Logs");
 insert into sources (ident, name) values ("CrossRefRobot", "CrossRef Robot");
+insert into sources (ident, name) values ("CrossRefDeposit", "CrossRef Deposit System");
 
 insert into types (ident, name, milestone, arg1desc) values ("issued", "Publisher Issue date", true, "CrossRef extended date");
 insert into types (ident, name, milestone) values ("deposited","Publisher first deposited with CrossRef", true);

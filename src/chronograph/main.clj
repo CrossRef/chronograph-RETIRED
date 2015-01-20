@@ -2,13 +2,18 @@
   (:require [chronograph.data :as d]
             [chronograph.import.mdapi :as mdapi]
             [chronograph.import.laskuri :as laskuri]
-            [chronograph.import.resolver :as resolver])
+            [chronograph.import.resolver :as resolver]
+            [chronograph.import.first-deposit :as first-deposit])
   (:require [clojure.java.io :refer [reader]])
   (:require [clojure.edn :as edn])
   (:require [clj-time.format :as format]))
 
 (defn -main
   [& args]
+  
+  (when (= (first args) "import-first-deposit")
+      (prn "DOI first deposit dates")
+      (first-deposit/run (second args)))
   
   (when (= (first args) "update-member-domains")
       (prn "update-member-domains")

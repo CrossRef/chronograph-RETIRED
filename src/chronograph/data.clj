@@ -111,6 +111,15 @@
       (k/delete d/top-domains (k/where {:month (coerce/to-sql-date date)}))
       (k/insert d/top-domains (k/values {:month (coerce/to-sql-date date) :domains top-domains})))))
 
+(defn insert-events-chunk-type-source
+  "Insert chunk of events of [doi date cnt arg1 arg2 arg3] "
+  [chunk type-id source-id]
+  (kdb/transaction
+    (prn "chunk insert-events-chunk-type-source")
+    (doseq [[doi date cnt arg1 arg2 arg3] chunk]
+      (insert-event doi type-id source-id date cnt arg1 arg2 arg3))))
+
+
 ; Channel for queueing timeline updates.
 (def event-timeline-chan (chan))
 
