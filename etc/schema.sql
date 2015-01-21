@@ -219,3 +219,5 @@ insert into types (ident, name, milestone) values ("daily-referral-subdomain", "
 insert into types (ident, name, milestone) values ("monthly-referral-subdomain", "Monthly referral count from subdomain", false);
 insert into types (ident, name, milestone) values ("yearly-referral-subdomain", "Yearly referral count from subdomain", false);
 insert into types (ident, name, milestone) values ("total-referrals-subdomain", "Total referrals count from subdomain", false);
+
+insert into types (ident, name, milestone, arg1desc) values ("crossmark-update-published", "CrossMark Update to this DOI Published", true, "DOI of update");

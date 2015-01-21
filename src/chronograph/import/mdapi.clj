@@ -27,6 +27,7 @@
 
 (def issued-type-id (data/get-type-id-by-name "issued"))
 (def updated-type-id (data/get-type-id-by-name "updated"))
+(def crossmark-update-type-id (data/get-type-id-by-name "crossmark-update-published"))
 (def metadata-source-id (data/get-source-id-by-name "CrossRefMetadata"))
 
 (defn get-metadata [doi]
@@ -61,10 +62,33 @@
                                     ; updated
                                     updatedInput (-> item :deposited :date-parts first)
                                     updated (apply crdate/crossref-date updatedInput)
-                                    updatedDate (coerce/to-sql-date (crdate/as-date updated))]
-                                
-                                [(when issued-input-ok [the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil])
-                                 [the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil]]))
+                                    updatedDate (coerce/to-sql-date (crdate/as-date updated))
+                                    
+                                    ; Crossmark updates (i.e. this DOI updates another)
+                                    
+                                    crossmark-update-to (-> item :update-to)
+                                    ; seq of [doi, type, source, date, count, DOI that wasn updated]
+                                    ; These are events for the *other* DOI.
+                                    crossmark-updates (map (fn [update] [(:DOI update)
+                                                                         crossmark-update-type-id
+                                                                         metadata-source-id
+                                                                         (crdate/as-date (apply crdate/crossref-date (-> update :updated :date-parts first)))
+                                                                         1
+                                                                         the-doi
+                                                                         nil
+                                                                         nil]) crossmark-update-to)
+                                    
+                                    ; results are mapcatted
+                                    results []
+                                    ; DOI metadata updated
+                                    results (conj results [the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil])
+                                    ; and DOI issued (published), if the deposit date was OK
+                                    results (if issued-input-ok
+                                              (conj results [the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil])
+                                              results)
+                                    ; and all CrossMark updates, if any
+                                    results (concat results crossmark-updates)]
+                                  results))
                             items)
         to-insert (remove nil? transformed)]
     
@@ -77,7 +101,7 @@
 (defn get-dois-updated-since [date]
   (let [base-q (if date 
           {:filter (str "from-update-date:" (unparse core/yyyy-mm-dd date))}
-          {})
+          {:filter ""})
         results (try-try-again {:sleep 5000 :tries :unlimited} #(client/get (str works-endpoint \? (client/generate-query-string (assoc base-q :rows 0))) {:as :json}))
         num-results (-> results :body :message :total-results)
         ; Extra page just in case.
