@@ -321,14 +321,14 @@
   (let [date-range (time-range first-date last-date step)]
     (map (fn [date] [date (or (get values date) 0)]) date-range)))
 
-(def exclude-domains #{"no-referrer." "doi.org"})
+(def special-domains #{"no-referrer." "doi.org"})
 
 (defn whitelist-domain [[domain-host _]]
     (not (member-domains domain-host)))
 
 (defn get-top-domains-ever
   "Get all the top-domains stats ever. Return as {domain months} where months spans entire range"
-  [redact? include-members take-n]
+  [redact? include-members take-n include-special]
   (let [all-results (k/select d/top-domains)
                         
         dates (sort t/before? (map :month all-results))
@@ -348,14 +348,13 @@
         
         ; transform into [month domain count]
         transformed (mapcat (fn [[month domains]] (map (fn [[domain cnt]] [month domain cnt]) domains)) sorted-domains)
+                
+        ; We may want not to exclude the special domains.
+        filtered (if include-special
+                   transformed
+                   (remove #(special-domains (second %)) transformed))
         
-        ; remove un-useful domains, include only desired top-n domains
-        ; filtered (if include-members
-                   ; (remove #(exclude-domains (second %)) transformed)
-                   ; (filter #(domain-whitelist (second (util/get-main-domain (second %)))) transformed))
-        
-        filtered (remove #(exclude-domains (second %)) transformed)
-        
+        ; We have loads of domains. Only include those that we identified as the top-n.
         filtered (filter #(top-n-domains (second %)) filtered)
         
         ; group into {domain => [month domain count]}

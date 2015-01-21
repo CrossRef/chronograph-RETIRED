@@ -144,19 +144,24 @@
                                   (catch java.lang.NumberFormatException _ nil))]
                         [(not top) {::top top}]))
   :handle-ok (fn [ctx]
-               (let [results (d/get-top-domains-ever true false (::top ctx))]
+               (let [; Include special things like 'no-referrer'
+                     include-special (= (-> ctx :request :params :special) "true")
+                     results (d/get-top-domains-ever true false (::top ctx) include-special)]
                  (render-file "templates/top-domains.html" {:include-members false :top-domains results :top (::top ctx)}))))
 
 (defresource top-domains-members
   []
   :available-media-types ["text/html"]
   :malformed? (fn [ctx]
-                      (let [top (try
+                      (let [
+                            top (try
                                   (. Integer parseInt (or (-> ctx :request :params :top) "200"))
                                   (catch java.lang.NumberFormatException _ nil))]
                         [(not top) {::top top}]))
   :handle-ok (fn [ctx]
-               (let [results (d/get-top-domains-ever true true (::top ctx))]
+               (let [; Include special things like 'no-referrer'
+                     include-special (= (-> ctx :request :params :special) "true")
+                     results (d/get-top-domains-ever true true (::top ctx) include-special)]
                  (render-file "templates/top-domains.html" {:include-members true :top-domains results :top (::top ctx)}))))
 
 (defresource dois-redirect
