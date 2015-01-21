@@ -32,7 +32,7 @@
     (let [url (crdoi/normalise-doi doi)
           result (try-try-again {:sleep 5000 :tries 2} #(client/head url
                                                          {:follow-redirects true
-                                                          :throw-exceptions false
+                                                          :throw-exceptions true
                                                           :socket-timeout 5000
                                                           :conn-timeout 5000
                                                           :headers {"Referer" "chronograph.crossref.org"}}))
@@ -44,7 +44,18 @@
           (locking *out* (prn "Finish resolve" doi ok))
           (when ok
             [first-redirect last-redirect (count redirects)]))
-    (catch Exception ex (do (prn "Ex" ex) nil))))
+    (catch Exception ex (let [message (.getMessage ex)]
+                          ; When it's FTP we can't follow, but we can say that we tried.
+                          ; Message is: Scheme 'ftp' not registered.
+                          (when (.contains message "ftp")
+                            (try
+                              (let [connection (.openConnection (new java.net.URL (crdoi/normalise-doi doi)))
+                                    first-redirect-url (.getHeaderField connection "Location")]
+                                ; We didn't actually follow, so record the number of redirects as zero.
+                                [first-redirect-url "" 0])
+                              
+                              ; It may still go wrong, in which case just return nothing.
+                              (catch Exception _ nil)))))))
 
 (defn insert-resolutions
   [doi first-direct last-redirect]
@@ -58,8 +69,8 @@
 (def num-return-chans 50)
 
 (defn run-doi-resolution []
-  ; Insert recently published.
-  (let [yesterday (t/minus (t/now) (t/days 1))
+  ; Insert recently published. There may be a delay in getting metdata 
+  (let [yesterday (t/minus (t/now) (t/days 5))
         today (t/plus (t/now) (t/days 1))
         recently-published (k/select d/events-isam (k/where (and (= :type issued-type-id)
                                                              (>= :event (coerce/to-sql-date yesterday))
