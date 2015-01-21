@@ -35,7 +35,8 @@
                                                           :throw-exceptions true
                                                           :socket-timeout 5000
                                                           :conn-timeout 5000
-                                                          :headers {"Referer" "chronograph.crossref.org"}}))
+                                                          :headers {"Referer" "chronograph.crossref.org"
+                                                                    "User-Agent" "CrossRefDOICheckerBot (labs@crossref.org)"}}))
           ; Drop the initial dx.doi.org
           redirects (rest (:trace-redirects result))
           first-redirect (first redirects)
