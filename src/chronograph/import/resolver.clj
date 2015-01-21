@@ -83,17 +83,22 @@
     
     (let [to-resolve (k/select d/resolutions (k/where {:resolved false}))
           dois (map :doi to-resolve)
+          ; Split into seq of seqs, partitioned by DOI prefix. Each of these lists is sent to a worker.
+          ; This ensures that the DOIs for a particular publisher are (generally) processed serially and won't overload a site.
+          doi-queues (partition-by (fn [doi] (first (.split #"/" doi))) dois)
           doi-resolve-channels (apply vector (map (fn [i] (chan)) (range num-return-chans)))
           resolve-channel (async/merge doi-resolve-channels)]
       
       ; Run concurrent resolvers that poll from the doi-channel and send back results back on their own channels.
       (doseq [ch doi-resolve-channels]
         (go
-           (loop [doi (<! doi-channel)]
-             (when doi
-                   (let [result (get-resolutions doi)]
-                     (when result
-                       (let [[first-redirect last-redirect] result]
+           ; Get a chunk of DOIs, all with the same prefix.
+           (loop [doi-list (<! doi-channel)]
+             (when doi-list
+                   (let [; Resolve each DOI
+                         results (map (fn [doi] [doi (get-resolutions doi)]) doi-list)]
+                     (doseq [result results]
+                       (let [[doi [first-redirect last-redirect]] result]
                            (>! ch [doi first-redirect last-redirect]))))
                    (recur (<! doi-channel))))
              
@@ -103,9 +108,9 @@
             
       ; Stick the DOIs on a channel for them to be resolved asynchronously and returned via doi-resolve-channels.
       (go
-        (doseq [doi dois]
-          (locking *out* (prn "Spool" doi))
-          (>! doi-channel doi))
+        (doseq [doi-queue doi-queues]
+          (locking *out* (prn "Spool queue" doi-queue))
+          (>! doi-channel doi-queue))
         (prn "Closing DOI channel")
         (close! doi-channel))
             
