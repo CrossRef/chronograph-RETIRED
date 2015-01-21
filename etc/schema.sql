@@ -198,7 +198,7 @@ insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution L
 insert into sources (ident, name) values ("CrossRefRobot", "CrossRef Robot");
 insert into sources (ident, name) values ("CrossRefDeposit", "CrossRef Deposit System");
 
-insert into types (ident, name, milestone, arg1desc) values ("issued", "Publisher Issue date", true, "CrossRef extended date");
+insert into types (ident, name, milestone, arg1desc) values ("issued", "Publisher Issue date", true, "Date supplied by publisher");
 insert into types (ident, name, milestone) values ("deposited","Publisher first deposited with CrossRef", true);
 insert into types (ident, name, milestone) values ("updated", "Publisher most recently updated CrossRef metadata", true);
 insert into types (ident, name, milestone, arg1desc, arg2desc) values ("first-resolution-test", "First attempt DOI resolution test", true, "Initial resolution URL", "Ultimate resolution URL", "Number of redirect hops");
