@@ -113,7 +113,6 @@
                      arg1 (::arg1 ctx)
                      arg2 (::arg2 ctx)
                      arg3 (::arg3 ctx)]
-                 (prn doi type-id source-id (t/now) 1 arg1 arg2 arg3)
                (d/insert-event doi type-id source-id (t/now) 1 arg1 arg2 arg3))))
 
 (defresource doi-facts
