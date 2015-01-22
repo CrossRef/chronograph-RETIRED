@@ -216,7 +216,7 @@ insert into types (ident, name, milestone, arg1desc, arg2desc) values ("first-re
 
 insert into types (ident, name, milestone, arg1desc, arg2desc, arg3desc) values ("WikipediaCitation",
                                                                         "Citation in Wikipedia",
-                                                                        false,
+                                                                        true,
                                                                         "Action",
                                                                         "Page URL",
                                                                         "Timestamp");
