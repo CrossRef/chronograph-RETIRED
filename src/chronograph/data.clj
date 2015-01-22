@@ -45,7 +45,17 @@
 (defn get-source-id-by-name [source-name]
   (:id (first (k/select d/sources (k/where {:ident source-name})))))
 
-(defn insert-event [doi type-id source-id date cnt arg1 arg2 arg3]
+(defn insert-event-with-tick
+  "Insert event. Don't replace value for same (source, type, doi) combination by supplying a tick value."
+  [doi type-id source-id date cnt arg1 arg2 arg3]
+  (try
+    (k/exec-raw ["INSERT INTO events_isam (doi, type, source, event, inserted, count, arg1, arg2, arg3, tick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3 (coerce/to-long (t/now))]])
+    (catch Exception e (prn "EXCEPTION" e))))
+
+(defn insert-event
+  "Insert event. Replace value for same (source, type, doi) combination."
+  [doi type-id source-id date cnt arg1 arg2 arg3]
   (try
     (k/exec-raw ["INSERT INTO events_isam (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?"
                  [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3

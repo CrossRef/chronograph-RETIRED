@@ -29,7 +29,7 @@ CREATE TABLE tokens (
     allowed_types TEXT
 );
 
--- Individual events
+-- Individual milestone events (one per type)
 CREATE TABLE events (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     doi VARCHAR(700),
@@ -93,6 +93,12 @@ CREATE TABLE events_isam (
     -- datetime this was inserted
     inserted DATETIME NOT NULL,
 
+    -- if two entries of (doi, source, type) with the same tick are inserted
+    -- then they are duplicates. If the tick is unique, then two of the same 
+    -- type will be allowed. 
+    -- This allows for both kinds of events.
+    tick BIGINT NOT NULL DEFAULT 0,
+
     source INT NOT NULL REFERENCES sources(id) ,
     type INT NOT NULL REFERENCES types(id),
 
@@ -100,7 +106,7 @@ CREATE TABLE events_isam (
     arg2 TEXT,
     arg3 TEXT,
 
-    UNIQUE(doi, source, type)
+    UNIQUE(doi, source, type, tick)
 ) ENGINE = myisam;
 
 CREATE INDEX event_doi_source_type_isam on events_isam (doi, source, type);

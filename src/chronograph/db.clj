@@ -67,7 +67,8 @@
     :type
     :arg1
     :arg2
-    :arg3)
+    :arg3
+    :tick)
   (k/belongs-to sources {:fk :source})
   (k/belongs-to types {:fk :type})
   (k/transform
