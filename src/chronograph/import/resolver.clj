@@ -46,6 +46,7 @@
           (when ok
             [first-redirect last-redirect (count redirects)]))
     (catch Exception ex (let [message (.getMessage ex)]
+                          (prn "EXCEPTION" ex)
                           ; When it's FTP we can't follow, but we can say that we tried.
                           ; Message is: Scheme 'ftp' not registered.
                           (when (.contains message "ftp")
@@ -61,9 +62,10 @@
 (defn insert-resolutions
   [doi first-direct last-redirect]
   (locking *out* (prn "Insert resolution" doi))
-    (let [[first-redirect last-redirect num-redirects] (get-resolutions doi)]
+    (when-let [result (get-resolutions doi)]
+      (let [[first-redirect last-redirect num-redirects] result]
         (data/insert-event doi resolved-type-id source-id (t/now) 1 first-redirect last-redirect (str num-redirects))
-        (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true}))))
+        (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true})))))
 
 
 ; Create a load of return channels for resolved DOIs.
