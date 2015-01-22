@@ -221,3 +221,17 @@
   (k/pk :doi)
   (k/entity-fields
     :doi :resolved))
+
+(k/defentity
+  tokens
+  (k/entity-fields
+   :token
+   [:allowed_sources :allowed-sources]
+   [:allowed_types :allowed-types])
+
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :allowed-sources (set (.split (:allowed-sources input) ","))
+          :allowed-types (set (.split (:allowed-types input) ",")))))))

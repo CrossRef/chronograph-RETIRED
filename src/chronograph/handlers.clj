@@ -10,7 +10,9 @@
   (:require [ring.util.response :refer [redirect]])
   (:require [liberator.core :refer [defresource resource]]
             [liberator.representation :refer [ring-response]])
-  (:require [selmer.parser :refer [render-file cache-off!]]))
+  (:require [selmer.parser :refer [render-file cache-off!]])
+  (:require [clojure.data.json :as json])
+  (:require [crossref.util.doi :as crdoi]))
 
 (defn export-info
   "Export with string keys (suitable for various content types)"
@@ -53,6 +55,66 @@
                       results (remove nil? results)    
                       results (if (empty? results) nil results)]
                   results)))
+
+; Fetch tokens on start-up. They're almost never changed.
+(def tokens (d/get-tokens))
+
+(defresource push
+  []
+  :allowed-methods [:post]
+  :available-media-types ["application/json"]
+  :post-redirect? false
+  :malformed? (fn [ctx]
+                (let [token (get-in ctx [:request :headers "token"])
+                     body (slurp (get-in ctx [:request :body]))]
+                (try 
+                  (let [body-content (json/read-str body)
+                        doi (get body-content "doi")
+                        type-name (get body-content "type")
+                        source-name (get body-content "source")
+                        type-id (d/get-type-id-by-name type-name)
+                        source-id (d/get-source-id-by-name source-name)
+                        arg1 (get body-content "arg1")
+                        arg2 (get body-content "arg2")
+                        arg3 (get body-content "arg3")]
+                    (if (or (nil? type-id) (nil? source-id) (empty? doi) (empty? token) (empty? type-name) (empty? source-name))
+                      true
+                      [false {::doi (crdoi/non-url-doi doi) 
+                              ::token token
+                              ::type-name type-name
+                              ::source-name source-name
+                              ::type-id type-id
+                              ::source-id source-id
+                              ::arg1 arg1
+                              ::arg2 arg2
+                              ::arg3 arg3}]))
+                  ; JSON deserialization errors.
+                  (catch java.io.EOFException _ true)
+                  (catch java.lang.Exception _ true))))
+  
+  :authorized? (fn [ctx]
+                (let [token (::token ctx)
+                      type-name (::type-name ctx)
+                      source-name (::source-name ctx)
+                      got-token (get tokens token)
+                      type-allowed (get-in got-token [:allowed-types type-name])
+                      source-allowed (get-in got-token [:allowed-sources source-name])]
+                  ; Must be allowed to insert events both of the the type and source.
+                  (and type-allowed source-allowed)))
+  :new? false
+  :exists? true
+  :respond-with-entity? true
+  :multiple-resolutions? false
+
+  :handle-ok (fn [ctx]
+               (let [doi (::doi ctx)
+                     type-id (::type-id ctx)
+                     source-id (::source-id ctx)
+                     arg1 (::arg1 ctx)
+                     arg2 (::arg2 ctx)
+                     arg3 (::arg3 ctx)]
+                 (prn doi type-id source-id (t/now) 1 arg1 arg2 arg3)
+               (d/insert-event doi type-id source-id (t/now) 1 arg1 arg2 arg3))))
 
 (defresource doi-facts
   [doi-prefix doi-suffix]
@@ -327,6 +389,7 @@
 
 
 (defroutes app-routes
+  
   (GET "/" [] (home))
   (GET "/member-domains" [] (member-domains))
   (GET "/top-domains-members" [] (top-domains-members))
@@ -342,6 +405,7 @@
     (context ["/:subdomain" :subdomain #".+?"] [subdomain] (subdomain-page subdomain)))
   
   (context "/api" []
+    (POST "/push" [] (push))
     (context "/dois" []
       (POST "/" [] (dois))
       (context ["/:doi-prefix/:doi-suffix/facts" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-facts doi-prefix doi-suffix))

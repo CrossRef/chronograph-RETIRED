@@ -489,3 +489,10 @@ events))
                                                             :type count-type}))
                                                 first :count))) subdomains)] 
       (if with-count with-count subdomains)))
+
+(defn get-tokens
+  "Get all tokens as mapping of {token {:allowed-types #{} :allowed-sources #{}}.
+  There are only going to be a small handful."
+  []
+  (let [types (k/select d/tokens)]
+    (into {} (map (fn [item] [(:token item) item]) types))))

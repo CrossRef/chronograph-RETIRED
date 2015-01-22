@@ -21,6 +21,14 @@ CREATE TABLE types (
     arg3desc TEXT
 );
 
+CREATE TABLE tokens (
+    token VARCHAR(128) PRIMARY KEY,
+    -- comma separated source names
+    allowed_sources TEXT,
+    -- comma separated type names
+    allowed_types TEXT
+);
+
 -- Individual events
 CREATE TABLE events (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
@@ -192,16 +200,27 @@ CREATE TABLE crossmarked_dois (
     UNIQUE(doi)
 );
 
+-- Example for Wikipedia Cocytus PUSH API. Set real token.
+-- insert into tokens (token, allowed_sources, allowed_types) values ("TOKENHERE", "Cocytus", "WikipediaCitation");
 
 insert into sources (ident, name) values ("CrossRefMetadata", "CrossRef Metadata");
 insert into sources (ident, name) values ("CrossRefLogs", "CrossRef Resolution Logs");
 insert into sources (ident, name) values ("CrossRefRobot", "CrossRef Robot");
 insert into sources (ident, name) values ("CrossRefDeposit", "CrossRef Deposit System");
+insert into sources (ident, name) values ("Cocytus", "Wikipedia Cocytus");
 
 insert into types (ident, name, milestone, arg1desc) values ("issued", "Publisher Issue date", true, "Date supplied by publisher");
 insert into types (ident, name, milestone) values ("deposited","Publisher first deposited with CrossRef", true);
 insert into types (ident, name, milestone) values ("updated", "Publisher most recently updated CrossRef metadata", true);
 insert into types (ident, name, milestone, arg1desc, arg2desc) values ("first-resolution-test", "First attempt DOI resolution test", true, "Initial resolution URL", "Ultimate resolution URL", "Number of redirect hops");
+
+insert into types (ident, name, milestone, arg1desc, arg2desc, arg3desc) values ("WikipediaCitation",
+                                                                        "Citation in Wikipedia",
+                                                                        false,
+                                                                        "Action",
+                                                                        "Page URL",
+                                                                        "Timestamp");
+
 
 insert into types (ident, name, milestone) values ("first-resolution", "First DOI resolution", true);
 insert into types (ident, name, milestone) values ("total-resolutions", "Total resolutions count", false);
