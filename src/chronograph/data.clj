@@ -13,7 +13,7 @@
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
   (:require [robert.bruce :refer [try-try-again]])
-  (:require [clojure.core.async :as async :refer [<! <!! go chan]]))
+  (:require [clojure.core.async :as async :refer [<! <!! >!! go chan]]))
 
 (defn insert-member-domains [member-id domains]
   (kdb/transaction
@@ -52,6 +52,19 @@
     (k/exec-raw ["INSERT INTO events_isam (doi, type, source, event, inserted, count, arg1, arg2, arg3, tick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                  [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3 (coerce/to-long (t/now))]])
     (catch Exception e (prn "EXCEPTION" e))))
+
+; Large buffer in case we are blocked on table write as the table is ISAM and might be locked.
+(def insert-event-with-tick-channel (chan 10000))
+
+(defn insert-event-with-tick-async
+  "As insert-event-with-tick but async. Block if buffer is full."
+  [doi type-id source-id date cnt arg1 arg2 arg3]
+  (>!! insert-event-with-tick-channel [doi type-id source-id date cnt arg1 arg2 arg3]))
+
+(go
+  (while true
+    (let [row (<! insert-event-with-tick-channel)]
+      (apply insert-event-with-tick row))))
 
 (defn insert-event
   "Insert event. Replace value for same (source, type, doi) combination."

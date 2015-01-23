@@ -113,7 +113,8 @@
                      arg1 (::arg1 ctx)
                      arg2 (::arg2 ctx)
                      arg3 (::arg3 ctx)]
-               (d/insert-event-with-tick doi type-id source-id (t/now) 1 arg1 arg2 arg3))))
+               (d/insert-event-with-tick-async doi type-id source-id (t/now) 1 arg1 arg2 arg3))
+               "OK"))
 
 (defresource doi-facts
   [doi-prefix doi-suffix]
