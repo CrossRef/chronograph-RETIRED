@@ -1,9 +1,10 @@
+-- Last run date etc.
 CREATE TABLE state (
     name VARCHAR(1024) NOT NULL,
     theDate DATETIME NOT NULL
 );
 
--- The party who inseted the data
+-- The party who inserted the data
 CREATE TABLE sources (
     id INTEGER AUTO_INCREMENT PRIMARY KEY,
     ident VARCHAR(128) NOT NULL UNIQUE,
@@ -29,35 +30,6 @@ CREATE TABLE tokens (
     allowed_types TEXT
 );
 
--- Individual milestone events (one per type)
-CREATE TABLE events (
-    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
-    doi VARCHAR(700),
-
-    -- number of events that this represents
-    -- normally 1, but this can be an aggregate for something else
-    count INTEGER NOT NULL DEFAULT 1,
-
-    -- datetime of event
-    -- null for 'all time'
-    event DATETIME NULL,
-
-    -- datetime this was inserted
-    inserted DATETIME NOT NULL,
-
-    source INT NOT NULL REFERENCES sources(id) ,
-    type INT NOT NULL REFERENCES types(id),
-
-    arg1 TEXT,
-    arg2 TEXT,
-    arg3 TEXT,
-
-    UNIQUE(doi, source, type)
-);
-
-CREATE INDEX event_doi_source_type on events (doi, source, type);
-CREATE INDEX event_doi on events (doi);
-
 -- Storage of entire timeline per DOI.
 CREATE TABLE event_timelines_isam (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
@@ -70,12 +42,10 @@ CREATE TABLE event_timelines_isam (
     type INT NOT NULL REFERENCES types(id),
 
     -- JSON of date -> count
-    timeline MEDIUMBLOB,
-
-    UNIQUE(doi, source, type)
+    timeline MEDIUMBLOB
 ) ENGINE = myisam;
 
-CREATE INDEX event_timelines_doi_source_type_isam ON event_timelines_isam (doi, source, type);
+CREATE UNIQUE INDEX event_timelines_doi_source_type_isam ON event_timelines_isam (doi, source, type);
 CREATE INDEX event_timelines_doi_isam ON event_timelines_isam (doi);
 
 CREATE TABLE events_isam (
@@ -104,13 +74,14 @@ CREATE TABLE events_isam (
 
     arg1 TEXT,
     arg2 TEXT,
-    arg3 TEXT,
-
-    UNIQUE(doi, source, type, tick)
+    arg3 TEXT
 ) ENGINE = myisam;
 
+CREATE UNIQUE INDEX events_isam_unique on events_isam (doi, source, type, tick);
 CREATE INDEX event_doi_source_type_isam on events_isam (doi, source, type);
-CREATE INDEX event_type_event_isam on events_isam (type, event);
+CREATE INDEX type_event_isam on events_isam (type);
+-- For looking up recent events.
+CREATE INDEX type_event on events_isam (type, event);
 CREATE INDEX event_doi_isam on events_isam (doi);
 
 -- Storage of entire timeline per referrer domain.
@@ -146,10 +117,10 @@ CREATE TABLE referrer_subdomain_timelines (
     type INT NOT NULL REFERENCES types(id),
 
     -- JSON of date -> count
-    timeline MEDIUMBLOB,
-    UNIQUE (domain, host, source, type)
+    timeline MEDIUMBLOB
 );
 
+CREATE UNIQUE INDEX domain_timelines_unique ON referrer_subdomain_timelines (domain, host, source, type);
 CREATE INDEX domain_timelines_subdomain_source_type ON referrer_subdomain_timelines (domain, host, source, type);
 CREATE INDEX domain_subdomain ON referrer_subdomain_timelines (domain);
 
@@ -159,11 +130,10 @@ create table referrer_domain_events (
    domain VARCHAR(128) NOT NULL,
    source INT NOT NULL REFERENCES sources(id) ,
    type INT NOT NULL REFERENCES types(id),
-   inserted DATETIME NOT NULL,
-   UNIQUE(domain, source, type)
+   inserted DATETIME NOT NULL
 );
 
-CREATE INDEX referrer_domain_events_type_source ON referrer_domain_events (event, domain, source, type);
+CREATE UNIQUE INDEX referrer_domain_events_unique ON referrer_domain_events (domain, source, type);
 
 create table referrer_subdomain_events (
    event DATETIME NULL, 
@@ -172,26 +142,24 @@ create table referrer_subdomain_events (
    domain VARCHAR(128) NOT NULL,
    source INT NOT NULL REFERENCES sources(id) ,
    type INT NOT NULL REFERENCES types(id),
-   inserted DATETIME NOT NULL,
-   UNIQUE(subdomain, domain, source, type)
+   inserted DATETIME NOT NULL
 );
-
-CREATE INDEX referrer_subdomain_events_type_source ON referrer_subdomain_events (event, subdomain, domain, source, type);
+CREATE UNIQUE INDEX referrer_subdomain_events_unique on referrer_subdomain_events (subdomain, domain, source, type);
 
 CREATE TABLE top_domains (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     month DATETIME NOT NULL,
-    domains MEDIUMBLOB,
-    UNIQUE (month)
+    domains MEDIUMBLOB
 );
-CREATE INDEX top_domains_month on top_domains (month);
+CREATE UNIQUE INDEX top_domains_month on top_domains (month);
 
 CREATE TABLE member_domains (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     member_id INTEGER NOT NULL,
-    domain VARCHAR(128) NOT NULL,
-    UNIQUE(member_id, domain)
+    domain VARCHAR(128) NOT NULL
 );
+
+CREATE UNIQUE INDEX member_domains_unique ON member_domains(member_id, domain);
 
 CREATE TABLE resolutions (
     doi VARCHAR(700) PRIMARY KEY,
@@ -202,9 +170,10 @@ CREATE TABLE resolutions (
 
 CREATE TABLE crossmarked_dois (
     doi VARCHAR(700) PRIMARY KEY,
-    metadata TEXT,
-    UNIQUE(doi)
+    metadata TEXT
 );
+
+CREATE UNIQUE INDEX crossmarked_dois_unique ON crossmarked_dois (doi);
 
 -- Example for Wikipedia Cocytus PUSH API. Set real token.
 -- insert into tokens (token, allowed_sources, allowed_types) values ("TOKENHERE", "Cocytus", "WikipediaCitation");
@@ -218,7 +187,12 @@ insert into sources (ident, name) values ("Cocytus", "Wikipedia Cocytus");
 insert into types (ident, name, milestone, arg1desc) values ("issued", "Publisher Issue date", true, "Date supplied by publisher");
 insert into types (ident, name, milestone) values ("deposited","Publisher first deposited with CrossRef", true);
 insert into types (ident, name, milestone) values ("updated", "Publisher most recently updated CrossRef metadata", true);
-insert into types (ident, name, milestone, arg1desc, arg2desc) values ("first-resolution-test", "First attempt DOI resolution test", true, "Initial resolution URL", "Ultimate resolution URL", "Number of redirect hops");
+insert into types (ident, name, milestone, arg1desc, arg2desc, arg3desc) values ("first-resolution-test",
+                                                                       "First attempt DOI resolution test",
+                                                                       true,
+                                                                       "Initial resolution URL",
+                                                                       "Ultimate resolution URL",
+                                                                       "Number of redirect hops");
 
 insert into types (ident, name, milestone, arg1desc, arg2desc, arg3desc) values ("WikipediaCitation",
                                                                         "Citation in Wikipedia",
