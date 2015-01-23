@@ -10,7 +10,7 @@
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
     
 
-    <table class="table table-striped">
+    <table class="table table-striped event-table">
     <thead>
     <tr>
         <th>type</th>
@@ -34,7 +34,7 @@
     
     {% for event in milestone-events %}
     <tr>
-        <td>{{event.type-name}}</td>
+        <td><a href="/events/types/{{event.type-identifier}}">{{event.type-name}}</a></td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
         <td>{{event.source-name}}
             <dl class="extra-info">

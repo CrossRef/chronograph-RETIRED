@@ -386,6 +386,18 @@
                                      :whitelisted whitelisted}]
                (render-file "templates/subdomain.html" render-context))))
 
+(defresource event-types
+  [type-name]
+  :available-media-types ["text/html"]
+  :exists? (fn [ctx]
+                (let [type (d/get-type-by-name type-name)]
+                  [type {::type type}]))
+  :handle-ok (fn [ctx]
+               (let [num-events 50
+                     type (::type ctx)
+                     events (d/get-recent-events (:id type) num-events)]
+                 (render-file "templates/events.html" {:events events :type type :num-events num-events}))))
+
 
 
 (defroutes app-routes
@@ -394,6 +406,7 @@
   (GET "/member-domains" [] (member-domains))
   (GET "/top-domains-members" [] (top-domains-members))
   (GET "/top-domains" [] (top-domains))
+  (GET ["/events/types/:type-name" :type-name #".*"] [type-name] (event-types type-name))
   (context "/dois" []
     (GET "/" [] (dois-redirect))
     (ANY "/*" {{doi :*} :params} (doi-page doi)))

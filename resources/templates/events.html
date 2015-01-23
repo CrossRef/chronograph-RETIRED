@@ -1,0 +1,39 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+    <div class="row">
+  <div class="col-md-12">
+    
+    <h1>{{type.name}}</h1>
+    <p class="lead">Recent {{num-events}} events</p>    
+
+    <table class="table table-striped event-table">
+    <thead>
+    <tr>
+        <th>DOI</th>
+        <th>type</th>
+        <th>date / count</th>
+        <th>from</th>
+        <th colspan="3">Extra info</th>
+    </tr>
+    </thead>
+    {% for event in events %}
+    <tr>
+        <td><a href="/dois/{{event.doi}}">{{event.doi}}</a></td>
+        <td>{{event.type-name}}</td>
+        <td>{{event.event|date:"YYYY-MM-dd"}}</td>
+        <td>{{event.source-name}}</td>         
+        <td>{% if event.arg1 %}<strong>{{event.arg1desc}}</strong></td><td>{{event.arg1}}{% endif %}</td>
+        <td>{% if event.arg2 %}<strong>{{event.arg2desc}}</strong></td><td>{{event.arg2}}{% endif %}</td>
+        <td>{% if event.arg3 %}<strong>{{event.arg3desc}}</strong></td><td>{{event.arg3}}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </table>
+        </div>
+    </div>
+</div>  
+
+{% endblock %}
+
+

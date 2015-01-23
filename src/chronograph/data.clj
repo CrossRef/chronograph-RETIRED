@@ -39,11 +39,17 @@
 
 (defn domain-whitelisted? [domain] (not (member-domains domain)))
 
+(defn get-type-by-name [type-name]
+  (first (k/select d/types (k/where {:ident type-name}))))
+
+(defn get-source-by-name [source-name]
+  (first (k/select d/sources (k/where {:ident source-name}))))
+
 (defn get-type-id-by-name [type-name]
-  (:id (first (k/select d/types (k/where {:ident type-name})))))
+  (:id (get-type-by-name type-name)))
 
 (defn get-source-id-by-name [source-name]
-  (:id (first (k/select d/sources (k/where {:ident source-name})))))
+  (:id (get-source-by-name source-name)))
 
 (defn insert-event-with-tick
   "Insert event. Don't replace value for same (source, type, doi) combination by supplying a tick value."
@@ -413,7 +419,8 @@
                (k/where (and (= :event nil) (= :doi doi)))
                
                (k/fields [:sources.name :source-name]
-                          [:types.name :type-name]))]
+                          [:types.name :type-name]
+                          [:types.ident :type-identifier]))]
 events))
 
 (defn get-doi-events 
@@ -425,7 +432,8 @@ events))
                (k/where (and (not= :event nil) (= :doi doi)))
                (k/order :events_isam.event)
                (k/fields [:sources.name :source-name]
-                          [:types.name :type-name]))]
+                          [:types.name :type-name]
+                          [:types.ident :type-identifier]))]
     events))
 
 (defn get-domain-events
@@ -519,3 +527,13 @@ events))
   []
   (let [types (k/select d/tokens)]
     (into {} (map (fn [item] [(:token item) item]) types))))
+
+(defn get-recent-events
+  [type-id num-events]
+  (k/select d/events-isam (k/where {:type type-id})
+                     (k/order :event :desc)
+                     (k/with d/sources)
+                     (k/with d/types)
+                     (k/fields [:sources.name :source-name]
+                               [:types.name :type-name])
+                     (k/limit num-events)))
