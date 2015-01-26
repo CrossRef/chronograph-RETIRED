@@ -77,12 +77,12 @@ CREATE TABLE events_isam (
     arg3 TEXT
 ) ENGINE = myisam;
 
-CREATE UNIQUE INDEX events_isam_unique on events_isam (doi, source, type, tick);
-CREATE INDEX event_doi_source_type_isam on events_isam (doi, source, type);
-CREATE INDEX type_event_isam on events_isam (type);
--- For looking up recent events.
-CREATE INDEX type_event on events_isam (type, event);
-CREATE INDEX event_doi_isam on events_isam (doi);
+ALTER TABLE events_isam
+add UNIQUE INDEX events_isam_dstt (doi, source, type, tick),
+add INDEX events_isam_dst (doi, source, type),
+add INDEX events_isam_t (type),
+add INDEX events_isam_te (type, event),
+add INDEX events_isam_d (doi);
 
 -- Storage of entire timeline per referrer domain.
 CREATE TABLE referrer_domain_timelines (
