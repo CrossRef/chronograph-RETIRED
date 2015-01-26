@@ -12,7 +12,12 @@
             [liberator.representation :refer [ring-response]])
   (:require [selmer.parser :refer [render-file cache-off!]])
   (:require [clojure.data.json :as json])
-  (:require [crossref.util.doi :as crdoi]))
+  (:require [crossref.util.doi :as crdoi]
+            [crossref.util.config :refer [config]]))
+
+; This can run as "Chronograph" or "DOI Event Collection"
+(def title (or (:title config) "DOI Chronograph"))
+(def homepage-template (or (:homepage-template config) "templates/index.html"))
 
 (defn export-info
   "Export with string keys (suitable for various content types)"
@@ -189,13 +194,16 @@
   []
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-   (render-file "templates/index.html" {:interesting-dois interesting-dois})))
+               ; Homepage template can be specified by config.
+   (render-file homepage-template {:title title
+                                        :interesting-dois interesting-dois})))
 
 (defresource member-domains
   []
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-   (render-file "templates/member-domains.html" {:member-domains (sort d/member-domains)})))
+   (render-file "templates/member-domains.html" {:title title 
+                                                 :member-domains (sort d/member-domains)})))
 
 (defresource top-domains
   []
@@ -209,7 +217,10 @@
                (let [; Include special things like 'no-referrer'
                      include-special (= (-> ctx :request :params :special) "true")
                      results (d/get-top-domains-ever true false (::top ctx) include-special)]
-                 (render-file "templates/top-domains.html" {:include-members false :top-domains results :top (::top ctx)}))))
+                 (render-file "templates/top-domains.html" {:title title
+                                                            :include-members false
+                                                            :top-domains results
+                                                            :top (::top ctx)}))))
 
 (defresource top-domains-members
   []
@@ -224,7 +235,10 @@
                (let [; Include special things like 'no-referrer'
                      include-special (= (-> ctx :request :params :special) "true")
                      results (d/get-top-domains-ever true true (::top ctx) include-special)]
-                 (render-file "templates/top-domains.html" {:include-members true :top-domains results :top (::top ctx)}))))
+                 (render-file "templates/top-domains.html" {:title title
+                                                            :include-members true
+                                                            :top-domains results
+                                                            :top (::top ctx)}))))
 
 (defresource dois-redirect
   []
@@ -266,7 +280,8 @@
                      ; get extra info in
                      extra-info (mdapi/get-metadata doi)
                      
-                     render-context {:first-date first-date
+                     render-context {:title title
+                                     :first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
@@ -322,7 +337,8 @@
                      
                      subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
-                     render-context {:first-date first-date
+                     render-context {:title title
+                                     :first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
@@ -373,7 +389,8 @@
                      
                      subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
-                     render-context {:first-date first-date
+                     render-context {:title title
+                                     :first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
@@ -396,7 +413,10 @@
                (let [num-events 50
                      type (::type ctx)
                      events (d/get-recent-events (:id type) num-events)]
-                 (render-file "templates/events.html" {:events events :type type :num-events num-events}))))
+                 (render-file "templates/events.html" {:title title
+                                                       :events events
+                                                       :type type
+                                                       :num-events num-events}))))
 
 
 
