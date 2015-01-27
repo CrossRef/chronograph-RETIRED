@@ -46,7 +46,6 @@ CREATE TABLE event_timelines_isam (
 ) ENGINE = myisam;
 
 CREATE UNIQUE INDEX event_timelines_doi_source_type_isam ON event_timelines_isam (doi, source, type);
-CREATE INDEX event_timelines_doi_isam ON event_timelines_isam (doi);
 
 CREATE TABLE events_isam (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
@@ -78,11 +77,10 @@ CREATE TABLE events_isam (
 ) ENGINE = myisam;
 
 ALTER TABLE events_isam
-add UNIQUE INDEX events_isam_dstt (doi, source, type, tick),
-add INDEX events_isam_dst (doi, source, type),
-add INDEX events_isam_t (type),
-add INDEX events_isam_te (type, event),
-add INDEX events_isam_d (doi);
+add UNIQUE INDEX events_isam_tstt (doi, source, type, tick),
+add INDEX events_isam_te (type, event);
+
+-- TODO REMOVE add INDEX events_isam_dst (doi, source, type),
 
 -- Storage of entire timeline per referrer domain.
 CREATE TABLE referrer_domain_timelines (
@@ -121,8 +119,6 @@ CREATE TABLE referrer_subdomain_timelines (
 );
 
 CREATE UNIQUE INDEX domain_timelines_unique ON referrer_subdomain_timelines (domain, host, source, type);
-CREATE INDEX domain_timelines_subdomain_source_type ON referrer_subdomain_timelines (domain, host, source, type);
-CREATE INDEX domain_subdomain ON referrer_subdomain_timelines (domain);
 
 create table referrer_domain_events (
    event DATETIME NULL, 
@@ -163,17 +159,13 @@ CREATE UNIQUE INDEX member_domains_unique ON member_domains(member_id, domain);
 
 CREATE TABLE resolutions (
     doi VARCHAR(700) PRIMARY KEY,
-    resolved BOOL default false,
-    UNIQUE(doi)
+    resolved BOOL default false
 );
-
 
 CREATE TABLE crossmarked_dois (
     doi VARCHAR(700) PRIMARY KEY,
     metadata TEXT
 );
-
-CREATE UNIQUE INDEX crossmarked_dois_unique ON crossmarked_dois (doi);
 
 -- Example for Wikipedia Cocytus PUSH API. Set real token.
 -- insert into tokens (token, allowed_sources, allowed_types) values ("TOKENHERE", "Cocytus", "WikipediaCitation");
