@@ -24,6 +24,7 @@
   :plugins [[lein-ring "0.8.13"]]
   ; :global-vars {*warn-on-reflection* true}
   :ring {:handler chronograph.handlers/app :auto-reload? true}
+  :init db/ensure-shard-tables!
   :main ^:skip-aot chronograph.main
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC"]

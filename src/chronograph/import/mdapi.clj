@@ -18,17 +18,12 @@
 ; (def api-page-size 1000)
 
 ; Temporary custom values. 
-(def works-endpoint "http://148.251.178.33:3000/v1/works")
-(def members-endpoint "http://148.251.178.33:3000/v1/members")
-(def api-page-size 100000)
+(def works-endpoint "http://api.crossref.org/v1/works")
+(def members-endpoint "http://api.crossref.org/v1/members")
+(def api-page-size 1000)
 (def members-api-page-size 100)
 (def transaction-chunk-size 10000)
 (def sample-size 100)
-
-(def issued-type-id (data/get-type-id-by-name "issued"))
-(def updated-type-id (data/get-type-id-by-name "updated"))
-(def crossmark-update-type-id (data/get-type-id-by-name "crossmark-update-published"))
-(def metadata-source-id (data/get-source-id-by-name "CrossRefMetadata"))
 
 (defn get-metadata [doi]
   (try 
@@ -70,8 +65,8 @@
                                     ; seq of [doi, type, source, date, count, DOI that wasn updated]
                                     ; These are events for the *other* DOI.
                                     crossmark-updates (map (fn [update] [(:DOI update)
-                                                                         crossmark-update-type-id
-                                                                         metadata-source-id
+                                                                         :crossmark-update-published
+                                                                         :CrossRefMetadata
                                                                          (crdate/as-date (apply crdate/crossref-date (-> update :updated :date-parts first)))
                                                                          1
                                                                          the-doi
@@ -81,10 +76,10 @@
                                     ; results are mapcatted
                                     results []
                                     ; DOI metadata updated
-                                    results (conj results [the-doi updated-type-id metadata-source-id updatedDate 1 nil nil nil])
+                                    results (conj results [the-doi :updated :CrossRefMetadata updatedDate 1 nil nil nil])
                                     ; and DOI issued (published), if the deposit date was OK
                                     results (if issued-input-ok
-                                              (conj results [the-doi issued-type-id metadata-source-id issuedDate 1 issuedString nil nil])
+                                              (conj results [the-doi :issued :CrossRefMetadata issuedDate 1 issuedString nil nil])
                                               results)
                                     ; and all CrossMark updates, if any
                                     results (concat results crossmark-updates)]
@@ -95,6 +90,7 @@
     (prn "insert chunk...")
     (doseq [subchunk (partition-all transaction-chunk-size to-insert)]
       (prn "insert subchunk... ")
+      ; DONE HS
       (data/insert-events-chunk subchunk))
     (prn "done")))
 

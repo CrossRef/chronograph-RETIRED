@@ -2,7 +2,8 @@
   (:require [chronograph.data :as d]
             [chronograph.db :as db]
             [chronograph.util :as util]
-            [chronograph.import.mdapi :as mdapi])
+            [chronograph.import.mdapi :as mdapi]
+            [chronograph.types :as types])
   (:require [clj-time.core :as t])
   (:require [compojure.core :refer [context defroutes GET ANY POST]]
             [compojure.handler :as handler]
@@ -10,10 +11,13 @@
   (:require [ring.util.response :refer [redirect]])
   (:require [liberator.core :refer [defresource resource]]
             [liberator.representation :refer [ring-response]])
-  (:require [selmer.parser :refer [render-file cache-off!]])
+  (:require [selmer.parser :refer [render-file cache-off!]]
+            [selmer.filters :refer [add-filter!]])
   (:require [clojure.data.json :as json])
   (:require [crossref.util.doi :as crdoi]
             [crossref.util.config :refer [config]]))
+
+(add-filter! :name name)
 
 ; This can run as "Chronograph" or "DOI Event Collection"
 (def title (or (:title config) "DOI Chronograph"))
@@ -75,21 +79,18 @@
                 (try 
                   (let [body-content (json/read-str body)
                         doi (get body-content "doi")
-                        type-name (get body-content "type")
-                        source-name (get body-content "source")
-                        type-id (d/get-type-id-by-name type-name)
-                        source-id (d/get-source-id-by-name source-name)
+                        type-name (get types/type-names (keyword (get body-content "type")))
+                        ; ensure it's a recognised type name
+                        source-name (get types/source-names (keyword (get body-content "source")))
                         arg1 (get body-content "arg1")
                         arg2 (get body-content "arg2")
                         arg3 (get body-content "arg3")]
-                    (if (or (nil? type-id) (nil? source-id) (empty? doi) (empty? token) (empty? type-name) (empty? source-name))
+                    (if (or (empty? doi) (empty? token) (nil? type-name) (nil? source-name))
                       true
                       [false {::doi (crdoi/non-url-doi doi) 
                               ::token token
                               ::type-name type-name
                               ::source-name source-name
-                              ::type-id type-id
-                              ::source-id source-id
                               ::arg1 arg1
                               ::arg2 arg2
                               ::arg3 arg3}]))
@@ -113,12 +114,12 @@
 
   :handle-ok (fn [ctx]
                (let [doi (::doi ctx)
-                     type-id (::type-id ctx)
-                     source-id (::source-id ctx)
+                     type-name (::type-name ctx)
+                     source-name (::source-name ctx)
                      arg1 (::arg1 ctx)
                      arg2 (::arg2 ctx)
                      arg3 (::arg3 ctx)]
-               (d/insert-event-with-tick-async doi type-id source-id (t/now) 1 arg1 arg2 arg3))
+               (d/insert-event-with-tick-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
                "OK"))
 
 (defresource doi-facts
@@ -252,22 +253,18 @@
   [doi]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [events (d/get-doi-events doi)
+               (let [events (d/get-doi-events doi)                     
                      timelines (d/get-doi-timelines doi)
-                     
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
-                     
                      continuous-events (remove :milestone events)
                      milestone-events (filter :milestone events)
-                                          
                      facts (d/get-doi-facts doi)
-                                          
+                      
                      ; Merge dates from events with dates from timelines
                      all-dates (concat timeline-dates (map :event events))
                      all-dates-sorted (sort t/before? all-dates)
                      first-date (when all-dates-sorted (first all-dates-sorted))
                      last-date (when all-dates-sorted (last all-dates-sorted))
-                     
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
                      timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
                                                           :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
@@ -278,7 +275,7 @@
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
                      ; get extra info in
-                     extra-info (mdapi/get-metadata doi)
+                     extra-info nil; (mdapi/get-metadata doi)
                      
                      render-context {:title title
                                      :first-date first-date
@@ -407,12 +404,14 @@
   [type-name]
   :available-media-types ["text/html"]
   :exists? (fn [ctx]
-                (let [type (d/get-type-by-name type-name)]
+                (let [type-name (keyword type-name)
+                      type (get types/types-by-id type-name)]
                   [type {::type type}]))
+  
   :handle-ok (fn [ctx]
                (let [num-events 50
                      type (::type ctx)
-                     events (d/get-recent-events (:id type) num-events)]
+                     events (d/get-recent-events (:name type) num-events)]
                  (render-file "templates/events.html" {:title title
                                                        :events events
                                                        :type type
@@ -448,5 +447,4 @@
 
 (def app
   (-> app-routes
-      handler/site
-      ))
+      handler/site))

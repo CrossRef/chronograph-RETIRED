@@ -5,7 +5,7 @@
     <div class="row">
   <div class="col-md-12">
     
-    <h1>{{type.name}}</h1>
+    <h1>{{type.description}}</h1>
     <p class="lead">Recent {{num-events}} events</p>    
 
     <table class="table table-striped event-table">
@@ -21,10 +21,10 @@
     <tr>
         <td><a href="/dois/{{event.doi}}">{{event.doi}}</a></td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{event.source-name}}</td>         
-        <td>{% if event.arg1 %}<strong>{{event.arg1desc}}</strong></td><td>{{event.arg1}}{% endif %}</td>
-        <td>{% if event.arg2 %}<strong>{{event.arg2desc}}</strong></td><td>{{event.arg2}}{% endif %}</td>
-        <td>{% if event.arg3 %}<strong>{{event.arg3desc}}</strong></td><td>{{event.arg3}}{% endif %}</td>
+        <td>{{event.source.description}}</td>         
+        <td>{% if event.arg1 %}<strong>{{event.type.arg1}}</strong></td><td>{{event.arg1}}{% endif %}</td>
+        <td>{% if event.arg2 %}<strong>{{event.type.arg2}}</strong></td><td>{{event.arg2}}{% endif %}</td>
+        <td>{% if event.arg3 %}<strong>{{event.type.arg3}}</strong></td><td>{{event.arg3}}{% endif %}</td>
     </tr>
     {% endfor %}
     </table>

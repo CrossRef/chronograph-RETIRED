@@ -7,6 +7,7 @@
   (:require [clojure.data.json :as json])
   (:require [clojure.edn :as edn]
             [clojure.java.io :refer [reader]])
+  (:require [chronograph.types :as types])
   (:require [korma.sql.engine :as korma-engine]
             [korma.core :refer :all]))
 
@@ -14,6 +15,47 @@
   (mysql {:user (:database-username config)
           :password (:database-password config)
           :db (:database-name config)}))
+
+; TODO MOVE TO DATA?
+(defn shard-name
+  [storage-format type-name]
+  {:pre [(types/type-names type-name)
+         (types/storage-formats storage-format)]}
+  (let [type-name-safe (.replaceAll (name type-name) "[^a-zA-Z]" "")
+        storage-format-safe (.replaceAll (name storage-format) "[^a-zA-Z]" "")]
+    (str "shard_" type-name-safe "_" storage-format-safe)))
+
+(defn ensure-shard-tables!
+  "Ensure every shard table exists."
+  []
+  (doseq [typ types/types]
+    (let [shard-table-name (shard-name (:storage typ) (:name typ))]
+    (condp = (:storage typ)
+      ; This is far from ideal, but it can't be done with prepared statements. 
+      ; No chance of sql injection as these inputs are hard-coded. 
+      :timeline (k/exec-raw [(str "create table if not exists " shard-table-name " like event_timelines_template") []])
+      :event (k/exec-raw [(str "create table if not exists " shard-table-name " like events_template") []])
+      :milestone (k/exec-raw [(str "create table if not exists " shard-table-name " like events_template") []])))))
+
+(defn all-event-tables
+  "Return seq of all event shard table names"
+  []
+  (let [event-types (filter #(= (:storage %) :event) types/types)]
+    (map #(shard-name (:storage %) (:name %)) event-types)))
+
+(defn all-milestone-tables
+  "Return seq of all milestone shard table names"
+  []
+  (let [event-types (filter #(= (:storage %) :milestone) types/types)]
+    (map #(shard-name (:storage %) (:name %)) event-types)))
+
+(defn all-timeline-tables
+  "Return seq of all timeline shard table names"
+  []
+  (let [event-types (filter #(= (:storage %) :timeline) types/types)]
+    (map #(shard-name (:storage %) (:name %)) event-types)))
+
+; TODO Above values could be stored. Probably wouldn't make much practical difference though.
 
 (defn coerce-sql-date
   "Coerce from SQL date if not null"
@@ -33,6 +75,7 @@
   (k/pk :id)
   (k/entity-fields :id :ident :name :milestone :arg1desc :arg2desc :arg3desc))
 
+; TODO RETIRE
 (k/defentity events
   (k/pk :id)
   (k/entity-fields
@@ -54,6 +97,7 @@
         (assoc input
           :event (when-let [d (:event input)] (coerce-sql-date d)))))))
 
+; TODO RETIRE
 (k/defentity events-isam
   (k/table "events_isam")
   (k/pk :id)
@@ -84,6 +128,7 @@
 (defn coerce-timeline-out [timeline]
   (reduce-kv (fn [m k v] (assoc m (coerce/from-date k) v)) {} timeline))
 
+; TODO REMOVE
 (k/defentity event-timelines
   (k/table "event_timelines_isam")
   (k/pk :id)

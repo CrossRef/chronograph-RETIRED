@@ -18,9 +18,7 @@
 
 (def doi-channel (chan))
 
-(def issued-type-id (data/get-type-id-by-name "issued"))
-(def resolved-type-id (data/get-type-id-by-name "first-resolution-test"))
-(def source-id (data/get-source-id-by-name "CrossRefRobot"))
+(def issued-type-id (data/get-type-id-by-name :issued))
 
 (defn prnl [& args] (locking *out* (apply prn args)))
 
@@ -64,7 +62,7 @@
   (locking *out* (prn "Insert resolution" doi))
     (when-let [result (get-resolutions doi)]
       (let [[first-redirect last-redirect num-redirects] result]
-        (data/insert-event doi resolved-type-id source-id (t/now) 1 first-redirect last-redirect (str num-redirects))
+        (data/insert-event doi :first-resolution :CrossRefRobot (t/now) 1 first-redirect last-redirect (str num-redirects))
         (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true})))))
 
 
@@ -75,7 +73,8 @@
   ; Insert recently published. There may be a delay in getting metdata 
   (let [yesterday (t/minus (t/now) (t/days 5))
         today (t/plus (t/now) (t/days 1))
-        recently-published (k/select d/events-isam (k/where (and (= :type issued-type-id)
+        shard-table-name (data/get-shard-table-name-from-type-name :issued)
+        recently-published (k/select shard-table-name (k/where (and 
                                                              (>= :event (coerce/to-sql-date yesterday))
                                                              (<= :event (coerce/to-sql-date today)))))]
 

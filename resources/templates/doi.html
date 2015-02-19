@@ -20,13 +20,13 @@
     </thead>
     {% for fact in facts %}
     <tr>
-        <td>{{fact.type-name}}</td>
+        <td><a href="/events/types/{{fact.type.name|name}}">{{fact.type.description}}</a></td>
         <td>{{fact.count}}</td>
-        <td>{{fact.source-name}}
+        <td>{{fact.source.description}}
             <dl class="extra-info">
-                {% if fact.arg1 %}<dt>{{fact.arg1desc}}:</dt><dd>{{fact.arg1}}</dd>{% endif %}
-                {% if fact.arg2 %}<dt>{{fact.arg2desc}}:</dt><dd>{{fact.arg2}}</dd>{% endif %}
-                {% if fact.arg3 %}<dt>{{fact.arg3desc}}:</dt><dd>{{fact.arg3}}</dd>{% endif %}
+                {% if fact.arg1 %}<dt>{{fact.type.arg1}}:</dt><dd>{{fact.arg1}}</dd>{% endif %}
+                {% if fact.arg2 %}<dt>{{fact.type.arg2}}:</dt><dd>{{fact.arg2}}</dd>{% endif %}
+                {% if fact.arg3 %}<dt>{{fact.type.arg3}}:</dt><dd>{{fact.arg3}}</dd>{% endif %}
             </dl>
         </td>
         </tr>
@@ -34,13 +34,13 @@
     
     {% for event in milestone-events %}
     <tr>
-        <td><a href="/events/types/{{event.type-identifier}}">{{event.type-name}}</a></td>
+        <td><a href="/events/types/{{event.type.name|name}}">{{event.type-name}}</a></td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{event.source-name}}
+        <td>{{event.source.description}}
             <dl class="extra-info">
-                {% if event.arg1 %}<dt>{{event.arg1desc}}:</dt><dd>{{event.arg1}}</dd>{% endif %}
-                {% if event.arg2 %}<dt>{{event.arg2desc}}:</dt><dd>{{event.arg2}}</dd>{% endif %}
-                {% if event.arg3 %}<dt>{{event.arg3desc}}:</dt><dd>{{event.arg3}}</dd>{% endif %}
+                {% if event.arg1 %}<dt>{{event.type.arg1}}:</dt><dd>{{event.arg1}}</dd>{% endif %}
+                {% if event.arg2 %}<dt>{{event.type.arg2}}:</dt><dd>{{event.arg2}}</dd>{% endif %}
+                {% if event.arg3 %}<dt>{{event.type.arg3}}:</dt><dd>{{event.arg3}}</dd>{% endif %}
             </dl>
         </td>
     </tr>

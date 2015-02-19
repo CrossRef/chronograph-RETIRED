@@ -20,12 +20,8 @@
         chunk-format (map (fn [[doi date]] [doi date 1 nil nil nil]) parsed)
         
         ; chunks
-        chunks (partition-all partition-size chunk-format)
-        
-        type-id (data/get-type-id-by-name "deposited")
-        source-id (data/get-source-id-by-name "CrossRefDeposit")
-        ]
+        chunks (partition-all partition-size chunk-format)]
   (prn "Insert first deposit")
   (doseq [chunk chunks]
     (prn "Chunk")
-    (data/insert-events-chunk-type-source chunk type-id source-id))))
+    (data/insert-events-chunk-type-source chunk :deposited :CrossRefDeposit))))

@@ -1,7 +1,8 @@
 (ns chronograph.data
   (:require [chronograph.db :as d]
             [chronograph.core :as core]
-            [chronograph.util :as util])
+            [chronograph.util :as util]
+            [chronograph.types :as types])
   (:require [clj-http.client :as client])
   (:require [crossref.util.config :refer [config]]
             [crossref.util.date :as crdate]
@@ -13,7 +14,9 @@
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
   (:require [robert.bruce :refer [try-try-again]])
-  (:require [clojure.core.async :as async :refer [<! <!! >!! go chan]]))
+  (:require [clojure.core.async :as async :refer [<! <!! >!! go chan]]
+            [clojure.java.io :refer [reader]]
+            [clojure.edn :as edn]))
 
 (defn insert-member-domains [member-id domains]
   (kdb/transaction
@@ -40,10 +43,11 @@
 (defn domain-whitelisted? [domain] (not (member-domains domain)))
 
 (defn get-type-by-name [type-name]
-  (first (k/select d/types (k/where {:ident type-name}))))
+  (first (k/select d/types (k/where {:ident (name type-name)}))))
 
 (defn get-source-by-name [source-name]
-  (first (k/select d/sources (k/where {:ident source-name}))))
+  (first (k/select d/sources (k/where {:ident (name source-name)}))))
+
 
 (defn get-type-id-by-name [type-name]
   (:id (get-type-by-name type-name)))
@@ -51,21 +55,63 @@
 (defn get-source-id-by-name [source-name]
   (:id (get-source-by-name source-name)))
 
+; TODO this can be cached
+(defn get-type-ids
+  "Return mapping of type id to info map (defined in chronograph.types)"
+  []
+  (into {} (map (fn [typ] (let [db-typ (get-type-by-name (:name typ))] [(:id db-typ) typ])) types/types)))
+
+(defn get-source-ids
+  "Return mapping of source id to info map (defined in chronograph.sources)"
+  []
+  (into {} (map (fn [src] (let [db-src (get-source-by-name (:name src))] [(:id db-src) src])) types/sources)))
+
+(defn get-shard-table-name-from-type-name
+  [type-name]
+  "Take type-name and return shard table name"
+  (let [storage-format (-> types/types-by-id type-name :storage)
+        shard-table-name (d/shard-name storage-format type-name)]
+    shard-table-name))
+
+(defn get-shard-info
+  "Take type-name and source-name and return triplet of [shard-table-name type-id source-id]
+  Packaged for frequent use."
+  [type-name source-name]
+  (let [type-id (get-type-id-by-name type-name)
+        storage-format (-> types/types-by-id type-name :storage)
+        shard-table-name (d/shard-name storage-format type-name)
+        source-id (get-source-id-by-name source-name)]
+    [shard-table-name type-id source-id]))
+
+
+
+(defn decorate-events
+  "Take a seq of events, decorate with type and source info"
+  [events]
+  (let [types-by-id (get-type-ids)
+        sources-by-id (get-source-ids)
+        mapped (map
+                 (fn [event] (assoc event :type (types-by-id (:type event))
+                                           :source (sources-by-id (:source event))))
+                 events)]
+    mapped))
+
 (defn insert-event-with-tick
   "Insert event. Don't replace value for same (source, type, doi) combination by supplying a tick value."
-  [doi type-id source-id date cnt arg1 arg2 arg3]
-  (try
-    (k/exec-raw ["INSERT INTO events_isam (doi, type, source, event, inserted, count, arg1, arg2, arg3, tick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                 [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3 (coerce/to-long (t/now))]])
-    (catch Exception e (prn "EXCEPTION" e))))
+  [doi type-name source-name date cnt arg1 arg2 arg3]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    (try
+      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3, tick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3 (coerce/to-long (t/now))]])
+      (catch Exception e (prn "EXCEPTION" e)))))
 
 ; Large buffer in case we are blocked on table write as the table is ISAM and might be locked.
 (def insert-event-with-tick-channel (chan 10000))
 
 (defn insert-event-with-tick-async
   "As insert-event-with-tick but async. Block if buffer is full."
-  [doi type-id source-id date cnt arg1 arg2 arg3]
-  (>!! insert-event-with-tick-channel [doi type-id source-id date cnt arg1 arg2 arg3]))
+  [doi type-name source-name date cnt arg1 arg2 arg3]
+    (>!! insert-event-with-tick-channel [doi type-name source-name date cnt arg1 arg2 arg3]))
 
 (go
   (while true
@@ -74,28 +120,33 @@
 
 (defn insert-event
   "Insert event. Replace value for same (source, type, doi) combination."
-  [doi type-id source-id date cnt arg1 arg2 arg3]
-  (try
-    (k/exec-raw ["INSERT INTO events_isam (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?"
-                 [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
-                  (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
-    (catch Exception e (prn "EXCEPTION" e))))
-
-(defn insert-domain-event [domain type-id source-id date cnt]
-  (when (and (< (.length domain) 128))
+  [doi type-name source-name date cnt arg1 arg2 arg3]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
     (try
-      (k/exec-raw ["INSERT INTO referrer_domain_events (domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
-                   [domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
-                    (coerce/to-sql-time date) (or cnt 1)]])
+      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
+                    (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
       (catch Exception e (prn "EXCEPTION" e)))))
 
-(defn insert-subdomain-event [host domain type-id source-id date cnt]
+(defn insert-domain-event
+  [domain type-id source-id date cnt]
+    (when (and (< (.length domain) 128))
+      (try
+        (k/exec-raw ["INSERT INTO referrer_domain_events (domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
+                     [domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
+                      (coerce/to-sql-time date) (or cnt 1)]])
+        (catch Exception e (prn "EXCEPTION" e)))))
+
+(defn insert-subdomain-event
+  [host domain type-id source-id date cnt]
   (when (and (< (.length domain) 128) (< (.length host) 128))
     (try
       (k/exec-raw ["INSERT INTO referrer_subdomain_events (subdomain, domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
                    [host domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
                     (coerce/to-sql-time date) (or cnt 1)]])
       (catch Exception e (prn "EXCEPTION" e)))))
+
+; The following functions call insert-event, so carry through the type-name and source-name without resolving them.
 
 (defn insert-events-chunk
   "Insert chunk of inputs to insert-event"
@@ -106,32 +157,36 @@
       (apply insert-event args))))
 
 (defn insert-doi-resolutions-count
-  [chunk type-id source-id]
-  (kdb/transaction
-    (prn "chunk insert-doi-resolutions-count")
-    (doseq [[doi cnt] chunk]
-      (insert-event doi type-id source-id nil cnt nil nil nil))))
+  [chunk type-name source-name]
+    (kdb/transaction
+      (prn "chunk insert-doi-resolutions-count")
+      (doseq [[doi cnt] chunk]
+        (insert-event doi type-name source-name nil cnt nil nil nil))))
 
 (defn insert-doi-first-resolution
-  [chunk type-id source-id]
-  (kdb/transaction
-    (prn "chunk insert-doi-first-resolution")
-    (doseq [[doi date] chunk]
-      (insert-event doi type-id source-id date nil nil nil nil))))
+  [chunk type-name source-name]
+    (kdb/transaction
+      (prn "chunk insert-doi-first-resolution")
+      (doseq [[doi date] chunk]
+        (insert-event doi type-name source-name date nil nil nil nil))))
 
 (defn insert-domain-count
-  [chunk type-id source-id]
-  (kdb/transaction
-    (prn "chunk insert-domain-count")
-    (doseq [[domain cnt] chunk]
-      (insert-domain-event domain type-id source-id nil cnt))))
+  [chunk type-name source-name]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    ; Not sharded for domains (yet).
+    (kdb/transaction
+      (prn "chunk insert-domain-count")
+      (doseq [[domain cnt] chunk]
+        (insert-domain-event domain type-id source-id nil cnt)))))
 
 (defn insert-subdomain-count
-  [chunk type-id source-id]
-  (kdb/transaction
-    (prn "chunk insert-domain-count")
-    (doseq [[host domain cnt] chunk]
-      (insert-subdomain-event host domain type-id source-id nil cnt))))
+  [chunk type-name source-name]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    ; Not sharded for domains (yet).
+    (kdb/transaction
+      (prn "chunk insert-domain-count")
+      (doseq [[[host domain] cnt] chunk]
+        (insert-subdomain-event host domain type-id source-id nil cnt)))))
 
 (defn insert-month-top-domains
   [chunk]
@@ -142,148 +197,133 @@
 
 (defn insert-events-chunk-type-source
   "Insert chunk of events of [doi date cnt arg1 arg2 arg3] "
-  [chunk type-id source-id]
-  (kdb/transaction
-    (prn "chunk insert-events-chunk-type-source")
-    (doseq [[doi date cnt arg1 arg2 arg3] chunk]
-      (insert-event doi type-id source-id date cnt arg1 arg2 arg3))))
+  [chunk type-name source-name]
+    (kdb/transaction
+      (prn "chunk insert-events-chunk-type-source")
+      (doseq [[doi date cnt arg1 arg2 arg3] chunk]
+        (insert-event doi type-name source-name date cnt arg1 arg2 arg3))))
 
+(defn read-edn [text]
+  (when text
+    (edn/read (java.io.PushbackReader. (reader text)))))
 
-; Channel for queueing timeline updates.
-(def event-timeline-chan (chan))
-
-(defn insert-event-timeline
+(defn insert-doi-timeline
   "Insert parts of an DOI's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per DOI, source, type.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  [doi type-id source-id data merge-fn]
-  (try 
-    (let [initial-row (first (k/select d/event-timelines
-                                       (k/where {:doi doi
-                                                 :type type-id
-                                                  :source source-id})))
-          initial-row-data (or (:timeline initial-row) {})
-          merged-data (merge-with merge-fn initial-row-data data)]
-      (if initial-row
-        (k/update d/event-timelines
-                  (k/where {:doi doi
-                            :type type-id
-                            :source source-id})
-                  (k/set-fields {:timeline merged-data}))
-        
-        (k/insert d/event-timelines
-                  (k/values {:doi doi
-                             :type type-id
-                             :source source-id
-                             :inserted (coerce/to-sql-time (t/now))
-                             :timeline merged-data}))))
-    ; SQL exception will be logged at console.
-    (catch Exception _)))
+  ; TODO RENAME TO insert-doi-timeline
+  [doi type-name source-name data merge-fn]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+   (try 
+      (let [initial-row (first (k/select table-name
+                                         (k/where {:doi doi
+                                                   :type type-id
+                                                    :source source-id})))
+            initial-row-data (d/coerce-timeline-out (or (read-edn (:timeline initial-row)) {}))
+            merged-data (merge-with merge-fn initial-row-data data)]
+        (if initial-row
+          (k/update table-name
+                    (k/where {:doi doi
+                              :type type-id
+                              :source source-id})
+                    (k/set-fields {:timeline (pr-str (d/coerce-timeline-in merged-data))}))
+          
+          (k/insert table-name
+                    (k/values {:doi doi
+                               :type type-id
+                               :source source-id
+                               :inserted (coerce/to-sql-time (t/now))
+                               :timeline (pr-str (d/coerce-timeline-in merged-data))}))))
+      ; SQL exception will be logged at console.
+      (catch Exception _))))
 
-; Four handlers to take work from the channel.
-; When this is being used as the Laskuri input, the input format (partitioned by DOI) ensures that we're not going to have concurrency problems.
-(go
-  (while true
-    (let [row (<!! event-timeline-chan)]
-      (apply insert-event-timeline row))))
-
-(go
-  (while true
-    (let [row (<!! event-timeline-chan)]
-      (apply insert-event-timeline row))))
-
-(go
-  (while true
-    (let [row (<!! event-timeline-chan)]
-      (apply insert-event-timeline row))))
-
-(go
-  (while true
-    (let [row (<!! event-timeline-chan)]
-      (apply insert-event-timeline row))))
-
-(defn insert-event-timelines
+(defn insert-doi-timelines
   "Insert chunk of event timelines in a transaction."
-  [chunk type-id source-id]
+  [chunk type-name source-name]
   (kdb/transaction
-    (prn "insert-event-timelines")
+    (prn "insert-doi-timelines")
     (doseq [[doi timeline] chunk]
-      (insert-event-timeline doi type-id source-id timeline #(max %1 %2)))))
+      (insert-doi-timeline doi type-name source-name timeline #(max %1 %2)))))
 
 (defn insert-domain-timeline
   "Insert parts of a Referrer Domain's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  [host domain type-id source-id data merge-fn]
-  (when (and (< (.length domain) 128) (< (.length host) 128))
-    (let [initial-row (first (k/select d/referrer-domain-timelines
-                                       (k/where {:domain domain
-                                                  :host host
-                                                  :type type-id
-                                                  :source source-id})))
-          initial-row-data (or (:timeline initial-row) {})
-          merged-data (merge-with merge-fn initial-row-data data)]
-      (if initial-row
-        (k/update d/referrer-domain-timelines
-                  (k/where {:domain domain
-                            :host host
-                            :type type-id
-                            :source source-id})
-                  (k/set-fields {:timeline merged-data}))
+  [host domain type-name source-name data merge-fn]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    (when (and (< (.length domain) 128) (< (.length host) 128))
+      (let [initial-row (first (k/select table-name
+                                         (k/where {:domain domain
+                                                    :host host
+                                                    :type type-id
+                                                    :source source-id})))
+            initial-row-data (or (:timeline initial-row) {})
+            merged-data (merge-with merge-fn initial-row-data data)]
         
-        (k/insert d/referrer-domain-timelines
-                  (k/values {:domain domain
-                             :host host
-                             :type type-id
-                             :source source-id
-                             :inserted (coerce/to-sql-time (t/now))
-                             :timeline merged-data}))))))
+        
+        
+        (if initial-row
+          (k/update table-name
+                    (k/where {:domain domain
+                              :host host
+                              :type type-id
+                              :source source-id})
+                    (k/set-fields {:timeline merged-data}))
+          
+          (k/insert table-name
+                    (k/values {:domain domain
+                               :host host
+                               :type type-id
+                               :source source-id
+                               :inserted (coerce/to-sql-time (t/now))
+                               :timeline merged-data})))))))
 
 (defn insert-domain-timelines
   "Insert chunk of domain timelines in a transaction."
-  [chunk type-id source-id]
+  [chunk type-name source-name]
   (kdb/transaction
     (prn "chunk insert-domain-timelines")
     (doseq [[domain timeline] chunk]
       ; TODO only the host (not the domain) is supplied in current data format.
-      (insert-domain-timeline domain domain type-id source-id timeline #(max %1 %2)))))
+      (insert-domain-timeline domain domain type-name source-name timeline #(max %1 %2)))))
 
 (defn insert-subdomain-timeline
   "Insert parts of a Referrer Subdomain's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  [host domain type-id source-id data merge-fn]
-  (when (and (< (.length domain) 128) (< (.length host) 128))
-    (let [initial-row (first (k/select d/referrer-subdomain-timelines
-                                       (k/where {:domain domain
-                                                 :host host
-                                                 :type type-id
-                                                 :source source-id})))
-          initial-row-data (or (:timeline initial-row) {})
-          merged-data (merge-with merge-fn initial-row-data data)]
-      (if initial-row
-        (k/update d/referrer-subdomain-timelines
-                  (k/where {:domain domain
-                            :host host
-                            :type type-id
-                            :source source-id})
-                  (k/set-fields {:timeline merged-data}))
-        
-        (k/insert d/referrer-subdomain-timelines
-                  (k/values {:domain domain
-                             :host host
-                             :type type-id
-                             :source source-id
-                             :inserted (coerce/to-sql-time (t/now))
-                             :timeline merged-data}))))))
+  [host domain type-name source-name data merge-fn]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    (when (and (< (.length domain) 128) (< (.length host) 128))
+      (let [initial-row (first (k/select table-name
+                                         (k/where {:domain domain
+                                                   :host host
+                                                   :type type-id
+                                                   :source source-id})))
+            initial-row-data (or (:timeline initial-row) {})
+            merged-data (merge-with merge-fn initial-row-data data)]
+        (if initial-row
+          (k/update table-name
+                    (k/where {:domain domain
+                              :host host
+                              :type type-id
+                              :source source-id})
+                    (k/set-fields {:timeline merged-data}))
+          
+          (k/insert table-name
+                    (k/values {:domain domain
+                               :host host
+                               :type type-id
+                               :source source-id
+                               :inserted (coerce/to-sql-time (t/now))
+                               :timeline merged-data})))))))
 
 (defn insert-subdomain-timelines
   "Insert chunk of subdomain timelines in a transaction."
-  [chunk type-id source-id]
-  (kdb/transaction
-    (prn "chunk insert-subdomain-timelines")
-    (doseq [[host domain timeline] chunk]
-      (insert-subdomain-timeline host domain type-id source-id timeline #(max %1 %2)))))
+  [chunk type-name source-name]
+    (kdb/transaction
+      (prn "chunk insert-subdomain-timelines")
+      (doseq [[host domain timeline] chunk]
+        (insert-subdomain-timeline host domain type-name source-name timeline #(max %1 %2)))))
 
 
 (defn sort-timeline-values
@@ -291,16 +331,21 @@
   [timeline]
   (into (sorted-map) (sort-by first t/before? (seq timeline))))
 
+(defn get-doi-timelines-for-table
+  "Get all timelines for a DOI from named table"
+  [doi table-name]
+  (when-let [timelines (k/select table-name
+                        (k/where {:doi doi}))]    
+                        (map (fn [timeline]
+                               (assoc timeline :timeline (sort-timeline-values (d/coerce-timeline-out (read-edn (:timeline timeline))))))
+                             timelines)))
+
 (defn get-doi-timelines
-  "Get all timelines for a DOI"
+  "Get all timelines for a DOI from all tables"
   [doi]
-  (when-let [timelines (k/select
-    d/event-timelines
-    (k/where {:doi doi})
-    (k/with d/types))]
-    (map (fn [timeline]
-           (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
-         timelines)))
+  (let [tables (d/all-timeline-tables)
+        all-events (apply concat (map #(get-doi-timelines-for-table doi %) tables))]
+    (decorate-events all-events)))
 
 (defn get-domain-timelines
   "Get all timelines for a domain"
@@ -411,30 +456,23 @@
 
 
 (defn get-doi-facts
+
   "Get 'facts' (i.e. non-time-based events)"
   [doi]
-  (let [events (k/select d/events-isam
-               (k/with d/sources)
-               (k/with d/types)
-               (k/where (and (= :event nil) (= :doi doi)))
-               
-               (k/fields [:sources.name :source-name]
-                          [:types.name :type-name]
-                          [:types.ident :type-identifier]))]
-events))
+  (let [all-tables (d/all-milestone-tables)
+        all-events (map #(k/select %
+                     (k/where (= :doi doi))) all-tables)
+        all (apply concat all-events)]
+    (decorate-events all)))
 
 (defn get-doi-events 
   "Get 'events' (i.e. events with a date stamp)"
   [doi]
-  (let [events (k/select d/events-isam
-               (k/with d/sources)
-               (k/with d/types)
-               (k/where (and (not= :event nil) (= :doi doi)))
-               (k/order :events_isam.event)
-               (k/fields [:sources.name :source-name]
-                          [:types.name :type-name]
-                          [:types.ident :type-identifier]))]
-    events))
+  (let [all-tables (d/all-event-tables)
+        all-events (map #(k/select %
+                     (k/where (= :doi doi))) all-tables)
+        all (apply concat all-events)]
+    (decorate-events all)))
 
 (defn get-domain-events
   "Get domain 'events' (i.e. events with a date stamp)"
@@ -488,21 +526,6 @@ events))
   (k/exec-raw ["insert into doi (doi, firstResolutionLog) values (?, ?) on duplicate key update firstResolutionLog = ?"
                [the-doi (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
 
-(defn delete-events-for-type [type-name]
-  (let [type-id (get-type-id-by-name type-name)]
-    (prn "Delete events for type" type-name type-id)
-    (k/delete d/events-isam (k/where (= :type type-id)))))
-
-(defn delete-domain-events-for-type [type-name]
-  (let [type-id (get-type-id-by-name type-name)]
-    (prn "Delete referrer domain events for type" type-name type-id)
-    (k/delete d/referrer-domain-events (k/where (= :type type-id)))))
-
-(defn delete-subdomain-events-for-type [type-name]
-  (let [type-id (get-type-id-by-name type-name)]
-    (prn "Delete referrer subdomain events for type" type-name type-id)
-    (k/delete d/referrer-subdomain-events (k/where (= :type type-id)))))
-
 (defn get-subdomains-for-domain [domain with-count?]
     (let [count-type (get-type-id-by-name "total-referrals-subdomain")
           subdomains (k/select d/referrer-subdomain-timelines
@@ -525,15 +548,16 @@ events))
   "Get all tokens as mapping of {token {:allowed-types #{} :allowed-sources #{}}.
   There are only going to be a small handful."
   []
+  ; TODO MAKE KEYWORDS
   (let [types (k/select d/tokens)]
     (into {} (map (fn [item] [(:token item) item]) types))))
 
 (defn get-recent-events
-  [type-id num-events]
-  (k/select d/events-isam (k/where {:type type-id})
+  [type-name num-events]
+  
+  (let [shard-table-name (get-shard-table-name-from-type-name type-name)
+        events (k/select shard-table-name
                      (k/order :event :desc)
-                     (k/with d/sources)
-                     (k/with d/types)
-                     (k/fields [:sources.name :source-name]
-                               [:types.name :type-name])
-                     (k/limit num-events)))
+                     (k/limit num-events))
+        decorated (decorate-events events)]
+    decorated))
