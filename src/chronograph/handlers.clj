@@ -20,6 +20,7 @@
   (:require [clojure.walk :refer [prewalk]]))
 
 (add-filter! :name name)
+(add-filter! :is-url #(or (.startsWith % "http://") (.startsWith % "https://")))
 
 ; This can run as "Chronograph" or "DOI Event Collection"
 (def title (or (:title config) "DOI Chronograph"))

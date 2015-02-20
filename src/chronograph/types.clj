@@ -23,8 +23,21 @@
         substitute-arg-names (into {} (map (fn [arg-name]
                                              (when-let [value (get event arg-name)]
                                                [(-> event :type arg-name) value])) arg123))]
-    
     substitute-arg-names))
+
+(defn wikipedia [event]
+  (let [base (standard-format event)
+        url (:arg2 event)
+        title (second (.split url "wiki/"))
+        title-decoded (java.net.URLDecoder/decode title)
+        
+        wiki (.getHost (new java.net.URL url))
+        
+        extra {"Title" title-decoded
+               "Wiki" wiki
+               }
+        ]
+    (into base extra)))
 
 (def types [
     {:name :issued
@@ -53,7 +66,7 @@
      :arg2 "Page URL"
      :arg3 "Timestamp"
      :storage :event
-     :format standard-format}
+     :format wikipedia}
     {:name :first-resolution
      :description "First DOI resolution"
      :storage :milestone
