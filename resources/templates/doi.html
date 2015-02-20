@@ -8,61 +8,69 @@
     <h2><a href="http://dx.doi.org/{{doi}}">{{response.doi}}</a></h2>
     <p class="lead">Events from {{response.first-date|date:"d MMMM YYYY"}} to {{response.last-date|date:"d MMMM YYYY"}}</p>
     
+    {% if response.facts|not-empty  %}
     <table class="table table-striped event-table">
     <thead>
     <tr>
         <th>type</th>
-        <th>date / count</th>
+        <th>count</th>
         <th>from</th>
     </tr>
     </thead>
+    <tbody>
     {% for fact in response.facts %}
     <tr>
-        <td><a href="/events/types/{{fact.type.name|name}}">{{fact.type.description}}</a></td>
+        <td><a href="/events/types/{{fact.type-name|name}}">{{fact.type-description}}</a></td>
         <td>{{fact.count}}</td>
-        <td>{{fact.source.description}}
-            <dl class="extra-info">
-                {% if fact.arg1 %}<dt>{{fact.type.arg1}}:</dt><dd>{{fact.arg1}}</dd>{% endif %}
-                {% if fact.arg2 %}<dt>{{fact.type.arg2}}:</dt><dd>{{fact.arg2}}</dd>{% endif %}
-                {% if fact.arg3 %}<dt>{{fact.type.arg3}}:</dt><dd>{{fact.arg3}}</dd>{% endif %}
+        <td>
+        {{fact.source.description}}
+        <dl class="extra-info">
+            {% for title,value in fact.extra %}
+            <dt>{{title}}</dt>
+            <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
+            {% endfor %}
             </dl>
         </td>
         </tr>
     {% endfor %}
+    </tbody>
+    </table>
+    {% endif %}
     
-    {% for event in response.events %}
+    {% if response.milestones|not-empty  %}
+    <table class="table table-striped event-table">
+    <thead>
     <tr>
-        <td><a href="/events/types/{{event.type.name|name}}">{{event.type.description}}</a></td>
-        <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{event.source.description}}
-            <dl class="extra-info">
-                {% if event.arg1 %}<dt>{{event.type.arg1}}:</dt><dd>{{event.arg1}}</dd>{% endif %}
-                {% if event.arg2 %}<dt>{{event.type.arg2}}:</dt><dd>{{event.arg2}}</dd>{% endif %}
-                {% if event.arg3 %}<dt>{{event.type.arg3}}:</dt><dd>{{event.arg3}}</dd>{% endif %}
-            </dl>
-        </td>
+        <th>type</th>
+        <th>date</th>
+        <th>from</th>
     </tr>
-    {% endfor %}
+    </thead>
+    <tbody>
     {% for milestone in response.milestones %}
     <tr>
-        <td><a href="/events/types/{{milestone.type.name|name}}">{{milestone.type.description}}</a></td>
+        <td><a href="/events/types/{{milestone.type-name|name}}">{{milestone.type-description}}</a></td>
         <td>{{milestone.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{milestone.source.description}}
-            <dl class="extra-info">
-                {% if milestone.arg1 %}<dt>{{milestone.type.arg1}}:</dt><dd>{{milestone.arg1}}</dd>{% endif %}
-                {% if milestone.arg2 %}<dt>{{milestone.type.arg2}}:</dt><dd>{{milestone.arg2}}</dd>{% endif %}
-                {% if milestone.arg3 %}<dt>{{milestone.type.arg3}}:</dt><dd>{{milestone.arg3}}</dd>{% endif %}
+        <td>
+        {{milestone.source.description}}
+        <dl class="extra-info">
+            {% for title,value in milestones.extra %}
+            <dt>{{title}}</dt>
+            <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
+            {% endfor %}
             </dl>
-        </td>
-    </tr>
+        </td>    </tr>
     {% endfor %}
-
+    </tbody>
     </table>
+    {% endif %}
+
     {% if response.first-date response.last-date %}
     <script>
     $(function(){
         var time = new Rickshaw.Fixtures.Time();
 {% for timeline in response.timelines %}
+
     var data_timeline_{{forloop.counter}} = [
     {"x": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0},
     {% for dt, count in timeline.timeline %}{"x": new Date("{{ dt|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}} },
@@ -74,7 +82,7 @@
         element: document.getElementById("chart_{{forloop.counter}}"),
         width: 1140,
         height: 200,
-        title: "{{timeline.name}}",
+        title: "{{timeline.type-description}}",
         interpolation: 'step-after',
         renderer: 'area',
         stroke: true,
@@ -126,7 +134,7 @@
 </script>
 
 {% for timeline in response.timelines %}
-<h3>{{timeline.name}}</h3>
+<h3>{{timeline.type-description}}</h3>
 {% if timeline.min %}<p>Minimum: {{timeline.min}}, maximum: {{timeline.max}}.</p>{%endif%}
 <div id="content">
 <div id="chart_container">
@@ -139,6 +147,37 @@
     {% else %}
     No data
     {% endif %}
+
+{% if response.events|not-empty %}
+<h3>Events</h3>
+    <table class="table table-striped event-table">
+    <thead>
+    <tr>
+        <th>type</th>
+        <th>date</th>
+        <th>from</th>
+    </tr>
+    </thead>
+    <tbody>
+{% for event in response.events %}
+    <tr>
+        <td><a href="/events/types/{{event.type-name|name}}">{{event.type-description}}</a></td>
+        <td>{{event.event|date:"YYYY-MM-dd"}}</td>
+        <td>
+        <dl class="extra-info">
+        {{event.source.description}}
+            {% for title,value in event.type-info %}
+            <dt>{{title}}</dt>
+            <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
+            {% endfor %}
+            </dl>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
+{% endif %}
+
     </div>
   </div>
 </div>  

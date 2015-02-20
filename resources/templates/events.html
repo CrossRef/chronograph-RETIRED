@@ -21,10 +21,15 @@
     <tr>
         <td><a href="/dois/{{event.doi}}">{{event.doi}}</a></td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
-        <td>{{event.source.description}}</td>         
-        <td>{% if event.arg1 %}<strong>{{event.type.arg1}}</strong></td><td>{{event.arg1}}{% endif %}</td>
-        <td>{% if event.arg2 %}<strong>{{event.type.arg2}}</strong></td><td>{{event.arg2}}{% endif %}</td>
-        <td>{% if event.arg3 %}<strong>{{event.type.arg3}}</strong></td><td>{{event.arg3}}{% endif %}</td>
+        <td>{{event.source.description}}</td>  
+        <td>       
+        <dl class="extra-info">
+            {% for title,value in event.type-info %}
+            <dt>{{title}}</dt>
+            <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
+            {% endfor %}
+            </dl>
+        </td>
     </tr>
     {% endfor %}
     </table>
