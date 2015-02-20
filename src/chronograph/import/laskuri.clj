@@ -116,7 +116,7 @@
 
 (defn insert-subdomain-timelines
   [base laskuri-name type-name source-name]
-  (let [lines (lazy-line-seq base laskuri-name parse-string-string-timeline)
+  (let [lines (lazy-line-seq base laskuri-name parse-timeline)
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [subdomain-host domain timeline]
     (doseq [chunk chunks]

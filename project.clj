@@ -15,19 +15,14 @@
                   [mysql-java "5.1.21"]
                   [compojure "1.3.1"]
                   [liberator "0.12.2"]
-                  [ring "1.3.2"]
                   [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
                   [robert/bruce "0.7.1"]
                   [selmer "0.7.7"]
                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                  [org.clojure/data.csv "0.1.2"]]
-  :plugins [[lein-ring "0.8.13"]]
-  ; :global-vars {*warn-on-reflection* true}
-  :ring {:handler chronograph.handlers/app
-         :auto-reload? true
-         ; Set up database type mappings.
-         :init chronograph.data/init!}
-  
+                  [org.clojure/data.csv "0.1.2"]
+                  [ring "1.3.2"]                  
+                  ]
+  ; :global-vars {*warn-on-reflection* true} 
   :main ^:skip-aot chronograph.main
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC"]
