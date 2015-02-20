@@ -17,7 +17,7 @@
                   [liberator "0.12.2"]
                   [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
                   [robert/bruce "0.7.1"]
-                  [selmer "0.7.7"]
+                  [selmer "0.8.0"]
                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                   [org.clojure/data.csv "0.1.2"]
                   [ring "1.3.2"]]

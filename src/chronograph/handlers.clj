@@ -272,29 +272,29 @@
   :handle-ok (fn [ctx]
                (ring-response (redirect (str "/dois/" (::doi ctx))))))
 
-(defn export-event
-  "Export an event's structure to normalise its types' argument fields"
-  [event]
-  (let [arg1-info (when-let [arg (:arg1 event)]
-               {(-> event :type :arg1) arg})
-        arg2-info (when-let [arg (:arg2 event)]
-              {(-> event :type :arg2) arg})
-        arg3-info (when-let [arg (:arg3 event)]
-              {(-> event :type :arg3) arg})
+; (defn export-event
+;   "Export an event's structure to normalise its types' argument fields"
+;   [event]
+;   (let [arg1-info (when-let [arg (:arg1 event)]
+;                {(-> event :type :arg1) arg})
+;         arg2-info (when-let [arg (:arg2 event)]
+;               {(-> event :type :arg2) arg})
+;         arg3-info (when-let [arg (:arg3 event)]
+;               {(-> event :type :arg3) arg})
         
-        event (-> event
-        (dissoc :arg1)
-                  (dissoc :arg2)
-                  (dissoc :arg3)
-                  (dissoc :type)
-                  (into arg1-info)
-                  (into arg2-info)
-                  (into arg3-info)
-                  (dissoc :type)
-                  (assoc :type (-> event :type :name))
-                  (dissoc :source)
-                  (assoc :source (-> event :source :name)))]
-    event))
+;         event (-> event
+;         (dissoc :arg1)
+;                   (dissoc :arg2)
+;                   (dissoc :arg3)
+;                   (dissoc :type)
+;                   (into arg1-info)
+;                   (into arg2-info)
+;                   (into arg3-info)
+;                   (dissoc :type)
+;                   (assoc :type (-> event :type :name))
+;                   (dissoc :source)
+;                   (assoc :source (-> event :source :name)))]
+;     event))
 
 
 (defresource doi-page
@@ -316,37 +316,28 @@
                      first-date (when all-dates-sorted (first all-dates-sorted))
                      last-date (when all-dates-sorted (last all-dates-sorted))
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
                                                           :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
                                                  interpolated-timelines)
 
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
-                     
-                     ; get extra info in
-                     extra-info nil; (mdapi/get-metadata doi)
-                     
+                                          
                      response {:first-date first-date
                                :last-date last-date
                                :doi doi
-                               :events events
-                               :milestones milestones
-                               :facts facts
-                               :timelines timelines-with-extras}
+                               :events (map types/export-type-info events)
+                               :milestones (map types/export-type-info milestones)
+                               :facts (map types/export-type-info facts)
+                               :timelines (map types/export-type-info timelines-with-padding)}
                      
                      render-context {:first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
-                                     :extra-info extra-info
                                      :response response}
                      
-                     json-representation (let [tidied (assoc response
-                                                         :events (map export-event events)
-                                                         :milestones (map export-event milestones)
-                                                         :facts (map export-event facts)
-                                                         :timelines (map export-event timelines))
-                                               correct-types (export-types-for-json tidied)]
-                                           correct-types)]  
+                     json-representation (export-types-for-json response)]
+                 (prn json-representation)
                   (condp = (get-in ctx [:representation :media-type])
                     "text/html" (render-file "templates/doi.html" render-context)
                     "application/json" (json/write-str json-representation)))))
@@ -381,7 +372,7 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
                                                           :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
                                                  interpolated-timelines)
                     
@@ -399,7 +390,7 @@
                                      :domain domain
                                      :events events
                                      :facts facts
-                                     :timelines timelines-with-extras
+                                     :timelines timelines-with-padding
                                      :subdomains subdomains
                                      :whitelisted whitelisted
                                      }]
@@ -433,7 +424,7 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     timelines-with-extras (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
                                                           :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
                                                  interpolated-timelines)
                     
@@ -452,7 +443,7 @@
                                      :domain domain
                                      :events events
                                      :facts facts
-                                     :timelines timelines-with-extras
+                                     :timelines timelines-with-padding
                                      :subdomains subdomains
                                      :whitelisted whitelisted}]
                (render-file "templates/subdomain.html" render-context))))
@@ -468,9 +459,10 @@
   :handle-ok (fn [ctx]
                (let [num-events 50
                      type (::type ctx)
-                     events (d/get-recent-events (:name type) num-events)]
+                     events (d/get-recent-events (:name type) num-events)
+                     with-info (map types/export-type-info events)]
                  (render-file "templates/events.html" {:title title
-                                                       :events events
+                                                       :events with-info
                                                        :type type
                                                        :num-events num-events}))))
 
