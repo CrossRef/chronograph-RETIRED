@@ -119,7 +119,8 @@
                      arg1 (::arg1 ctx)
                      arg2 (::arg2 ctx)
                      arg3 (::arg3 ctx)]
-               (d/insert-event-with-tick-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
+                 ; TODO DECIDE ON TYPE
+               (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
                "OK"))
 
 (defresource doi-facts
@@ -253,15 +254,17 @@
   [doi]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [events (d/get-doi-events doi)                     
+               (let [events (d/get-doi-events doi)
+                     facts (d/get-doi-facts doi)
+                     milestones (d/get-doi-milestones doi)
                      timelines (d/get-doi-timelines doi)
+                     
                      timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
                      continuous-events (remove :milestone events)
                      milestone-events (filter :milestone events)
-                     facts (d/get-doi-facts doi)
                       
                      ; Merge dates from events with dates from timelines
-                     all-dates (concat timeline-dates (map :event events))
+                     all-dates (concat timeline-dates (map :event events) (map :event milestones))
                      all-dates-sorted (sort t/before? all-dates)
                      first-date (when all-dates-sorted (first all-dates-sorted))
                      last-date (when all-dates-sorted (last all-dates-sorted))
@@ -284,14 +287,10 @@
                                      :last-date-pad last-date-pad
                                      :doi doi
                                      :events events
-                                     :milestone-events milestone-events
-                                     ; :continuous-events continuous-events
-                                     ; :continuous-events-by-type continuous-events-by-type
-                                     ; :milestone-events-by-type milestone-events-by-type
+                                     :milestones milestones
                                      :facts facts
-                                     ; :facts-by-type facts-by-type
                                      :timelines timelines-with-extras
-                                     :extra-info extra-info}]
+                                     :extra-info extra-info}]                 
                (render-file "templates/doi.html" render-context))))
 
 (defresource domains-redirect
@@ -405,7 +404,7 @@
   :available-media-types ["text/html"]
   :exists? (fn [ctx]
                 (let [type-name (keyword type-name)
-                      type (get types/types-by-id type-name)]
+                      type (get types/types-by-name type-name)]
                   [type {::type type}]))
   
   :handle-ok (fn [ctx]

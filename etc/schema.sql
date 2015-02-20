@@ -32,7 +32,7 @@ CREATE TABLE tokens (
 
 -- Storage of entire timeline per DOI.
 -- Template for sharded event timeline tables. Will be copied to create new shards.
-CREATE TABLE event_timelines_template (
+CREATE TABLE timeline_shard_template (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     doi VARCHAR(700),
 
@@ -47,10 +47,10 @@ CREATE TABLE event_timelines_template (
 ) ENGINE = myisam;
 
 -- type isn't indexed because it's the basis of the shard table identity, so is always known.
-CREATE UNIQUE INDEX event_timelines_doi_source_type_isam ON event_timelines_template (doi);
+CREATE UNIQUE INDEX event_timelines_doi_source_type_isam ON timeline_shard_template (doi);
 
 -- This is a template for sharded events tables. Will be copied to create new shards.
-CREATE TABLE events_template (
+CREATE TABLE event_shard_template (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     doi VARCHAR(700),
 
@@ -65,11 +65,35 @@ CREATE TABLE events_template (
     -- datetime this was inserted
     inserted DATETIME NOT NULL,
 
-    -- if two entries of (doi, source, type) with the same tick are inserted
-    -- then they are duplicates. If the tick is unique, then two of the same 
-    -- type will be allowed. 
-    -- This allows for both kinds of events.
-    tick BIGINT NOT NULL DEFAULT 0,
+    source INT NOT NULL REFERENCES sources(id),
+
+    -- Redundant but stored to make sharding a generic + easier + backward compatible.
+    type INT NOT NULL REFERENCES types(id),
+
+    arg1 TEXT,
+    arg2 TEXT,
+    arg3 TEXT
+) ENGINE = myisam;
+
+-- no uniques in the events table.
+ALTER TABLE event_shard_template
+add INDEX events_te (event);
+
+-- This is a template for sharded milestone tables. Will be copied to create new shards.
+CREATE TABLE milestone_shard_template (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    doi VARCHAR(700),
+
+    -- number of events that this represents
+    -- normally 1, but this can be an aggregate for something else
+    count INTEGER NOT NULL DEFAULT 1,
+
+    -- datetime of event
+    -- null for 'all time'
+    event DATETIME NULL,
+
+    -- datetime this was inserted
+    inserted DATETIME NOT NULL,
 
     source INT NOT NULL REFERENCES sources(id),
 
@@ -81,12 +105,39 @@ CREATE TABLE events_template (
     arg3 TEXT
 ) ENGINE = myisam;
 
--- type isn't indexed because it's the basis of the shard table identity, so is always known.
-ALTER TABLE events_template
-add UNIQUE INDEX events_tstt (doi, source, tick),
+ALTER TABLE milestone_shard_template
+add UNIQUE INDEX events_tstt (doi, source), -- type is implicit by virtue of sharding
 add INDEX events_te (event);
 
--- TODO REMOVE add INDEX events_isam_dst (doi, source, type),
+-- This is a template for sharded fact tables. Will be copied to create new shards.
+CREATE TABLE fact_shard_template (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    doi VARCHAR(700),
+
+    -- number of events that this represents
+    -- normally 1, but this can be an aggregate for something else
+    count INTEGER NOT NULL DEFAULT 1,
+
+    -- datetime of event
+    -- null for 'all time'
+    event DATETIME NULL,
+
+    -- datetime this was inserted
+    inserted DATETIME NOT NULL,
+
+    source INT NOT NULL REFERENCES sources(id),
+
+    -- Redundant but stored to make sharding a generic + easier + backward compatible.
+    type INT NOT NULL REFERENCES types(id),
+
+    arg1 TEXT,
+    arg2 TEXT,
+    arg3 TEXT
+) ENGINE = myisam;
+
+ALTER TABLE fact_shard_template
+add UNIQUE INDEX events_tstt (doi, source), -- type is implicit by virtue of sharding
+add INDEX events_te (event);
 
 -- Storage of entire timeline per referrer domain.
 CREATE TABLE referrer_domain_timelines (

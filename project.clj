@@ -23,8 +23,11 @@
                   [org.clojure/data.csv "0.1.2"]]
   :plugins [[lein-ring "0.8.13"]]
   ; :global-vars {*warn-on-reflection* true}
-  :ring {:handler chronograph.handlers/app :auto-reload? true}
-  :init db/ensure-shard-tables!
+  :ring {:handler chronograph.handlers/app
+         :auto-reload? true
+         ; Set up database type mappings.
+         :init chronograph.data/init!}
+  
   :main ^:skip-aot chronograph.main
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC"]

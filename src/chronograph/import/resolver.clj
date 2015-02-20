@@ -18,8 +18,6 @@
 
 (def doi-channel (chan))
 
-(def issued-type-id (data/get-type-id-by-name :issued))
-
 (defn prnl [& args] (locking *out* (apply prn args)))
 
 (defn get-resolutions
@@ -62,7 +60,7 @@
   (locking *out* (prn "Insert resolution" doi))
     (when-let [result (get-resolutions doi)]
       (let [[first-redirect last-redirect num-redirects] result]
-        (data/insert-event doi :first-resolution :CrossRefRobot (t/now) 1 first-redirect last-redirect (str num-redirects))
+        (data/insert-fact doi :first-resolution :CrossRefRobot (t/now) 1 first-redirect last-redirect (str num-redirects))
         (k/update d/resolutions (k/where {:doi doi}) (k/set-fields {:resolved true})))))
 
 

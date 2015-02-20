@@ -33,9 +33,18 @@
     (condp = (:storage typ)
       ; This is far from ideal, but it can't be done with prepared statements. 
       ; No chance of sql injection as these inputs are hard-coded. 
-      :timeline (k/exec-raw [(str "create table if not exists " shard-table-name " like event_timelines_template") []])
-      :event (k/exec-raw [(str "create table if not exists " shard-table-name " like events_template") []])
-      :milestone (k/exec-raw [(str "create table if not exists " shard-table-name " like events_template") []])))))
+      :timeline (k/exec-raw [(str "create table if not exists " shard-table-name " like timeline_shard_template") []])
+      :event (k/exec-raw [(str "create table if not exists " shard-table-name " like event_shard_template") []])
+      :milestone (k/exec-raw [(str "create table if not exists " shard-table-name " like milestone_shard_template") []])
+      :fact (k/exec-raw [(str "create table if not exists " shard-table-name " like fact_shard_template") []])
+      ))))
+
+(defn all-fact-tables
+  "Return seq of all fact shard table names"
+  []
+  (let [event-types (filter #(= (:storage %) :fact) types/types)]
+    (map #(shard-name (:storage %) (:name %)) event-types)))
+
 
 (defn all-event-tables
   "Return seq of all event shard table names"
@@ -97,30 +106,8 @@
         (assoc input
           :event (when-let [d (:event input)] (coerce-sql-date d)))))))
 
-; TODO RETIRE
-(k/defentity events-isam
-  (k/table "events_isam")
-  (k/pk :id)
-  (k/entity-fields
-    :id
-    :doi
-    :count
-    :event
-    :inserted
-    :source
-    :type
-    :arg1
-    :arg2
-    :arg3
-    :tick)
-  (k/belongs-to sources {:fk :source})
-  (k/belongs-to types {:fk :type})
-  (k/transform
-    (fn [input]
-      (when input
-        (assoc input
-          :event (when-let [d (:event input)] (coerce-sql-date d)))))))
-
+; These are used in chronograph.data to serialise and deserialise.
+; Not included in a Korma entity here because the table name is dynamic.
 (defn coerce-timeline-in [timeline]
   "Coerce a timeline to Java Date from Joda Date, so it can be serialized"
   (reduce-kv (fn [m k v] (assoc m (coerce/to-date k) v)) {} timeline))
@@ -128,29 +115,8 @@
 (defn coerce-timeline-out [timeline]
   (reduce-kv (fn [m k v] (assoc m (coerce/from-date k) v)) {} timeline))
 
-; TODO REMOVE
-(k/defentity event-timelines
-  (k/table "event_timelines_isam")
-  (k/pk :id)
-  (k/entity-fields
-    :id
-    :doi
-    :inserted
-    :source
-    :type
-    :timeline)
-  (k/belongs-to sources {:fk :source})
-  (k/belongs-to types {:fk :type})
-  (k/prepare
-    (fn [input]
-      (when input
-        (assoc input
-          :timeline (when-let [d (:timeline input)] (pr-str (coerce-timeline-in d)))))))
-  (k/transform
-    (fn [input]
-      (when input
-        (assoc input
-          :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
+(defn coerce-event-out [event]
+  (assoc event :event (coerce/from-sql-date (:event event))))
 
 (k/defentity referrer-domain-timelines
   (k/table "referrer_domain_timelines")
@@ -281,3 +247,5 @@
         (assoc input
           :allowed-sources (set (.split (:allowed-sources input) ","))
           :allowed-types (set (.split (:allowed-types input) ",")))))))
+
+(def thing "other thing")

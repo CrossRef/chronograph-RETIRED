@@ -18,6 +18,13 @@
             [clojure.java.io :refer [reader]]
             [clojure.edn :as edn]))
 
+; Types and sources by their database id.
+; Set by init!
+(def types-by-id (atom {}))
+(def sources-by-id (atom {}))
+(def type-ids-by-name (atom {}))
+(def source-ids-by-name (atom {}))
+
 (defn insert-member-domains [member-id domains]
   (kdb/transaction
     (doseq [domain domains]
@@ -42,34 +49,10 @@
 
 (defn domain-whitelisted? [domain] (not (member-domains domain)))
 
-(defn get-type-by-name [type-name]
-  (first (k/select d/types (k/where {:ident (name type-name)}))))
-
-(defn get-source-by-name [source-name]
-  (first (k/select d/sources (k/where {:ident (name source-name)}))))
-
-
-(defn get-type-id-by-name [type-name]
-  (:id (get-type-by-name type-name)))
-
-(defn get-source-id-by-name [source-name]
-  (:id (get-source-by-name source-name)))
-
-; TODO this can be cached
-(defn get-type-ids
-  "Return mapping of type id to info map (defined in chronograph.types)"
-  []
-  (into {} (map (fn [typ] (let [db-typ (get-type-by-name (:name typ))] [(:id db-typ) typ])) types/types)))
-
-(defn get-source-ids
-  "Return mapping of source id to info map (defined in chronograph.sources)"
-  []
-  (into {} (map (fn [src] (let [db-src (get-source-by-name (:name src))] [(:id db-src) src])) types/sources)))
-
 (defn get-shard-table-name-from-type-name
   [type-name]
   "Take type-name and return shard table name"
-  (let [storage-format (-> types/types-by-id type-name :storage)
+  (let [storage-format (-> types/types-by-name type-name :storage)
         shard-table-name (d/shard-name storage-format type-name)]
     shard-table-name))
 
@@ -77,56 +60,64 @@
   "Take type-name and source-name and return triplet of [shard-table-name type-id source-id]
   Packaged for frequent use."
   [type-name source-name]
-  (let [type-id (get-type-id-by-name type-name)
-        storage-format (-> types/types-by-id type-name :storage)
+  (let [type-id (@type-ids-by-name type-name)
+        storage-format (-> types/types-by-name type-name :storage)
         shard-table-name (d/shard-name storage-format type-name)
-        source-id (get-source-id-by-name source-name)]
+        source-id (@source-ids-by-name source-name)]
     [shard-table-name type-id source-id]))
-
 
 
 (defn decorate-events
   "Take a seq of events, decorate with type and source info"
   [events]
-  (let [types-by-id (get-type-ids)
-        sources-by-id (get-source-ids)
-        mapped (map
-                 (fn [event] (assoc event :type (types-by-id (:type event))
-                                           :source (sources-by-id (:source event))))
+  (let [mapped (map
+                 (fn [event] (assoc event :type (@types-by-id (:type event))
+                                           :source (@sources-by-id (:source event))))
                  events)]
     mapped))
 
-(defn insert-event-with-tick
-  "Insert event. Don't replace value for same (source, type, doi) combination by supplying a tick value."
+(defn insert-event
+  "Insert event. No such thing as a duplicate."
   [doi type-name source-name date cnt arg1 arg2 arg3]
   (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
     (try
-      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3, tick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3 (coerce/to-long (t/now))]])
+      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
       (catch Exception e (prn "EXCEPTION" e)))))
 
-; Large buffer in case we are blocked on table write as the table is ISAM and might be locked.
-(def insert-event-with-tick-channel (chan 10000))
-
-(defn insert-event-with-tick-async
-  "As insert-event-with-tick but async. Block if buffer is full."
+(defn insert-milestone
+  "Insert milestone. Replace duplicates." ; TODO make behaviour definable
   [doi type-name source-name date cnt arg1 arg2 arg3]
-    (>!! insert-event-with-tick-channel [doi type-name source-name date cnt arg1 arg2 arg3]))
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    (try
+      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, event = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
+                    source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
+      (catch Exception e (prn "EXCEPTION" e)))))
+
+(defn insert-fact
+  "Insert fact. Replace duplicates."; TODO make behaviour definable
+  [doi type-name source-name date cnt arg1 arg2 arg3]
+  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+    (try
+      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, event = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
+                   [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3
+                    source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
+      (catch Exception e (prn "EXCEPTION" e)))))
+
+
+; Large buffer in case we are blocked on table write as the table is ISAM and might be locked.
+(def insert-event-channel (chan 10000))
+
+(defn insert-event-async
+  "As insert-event but async. Block if buffer is full."
+  [doi type-name source-name date cnt arg1 arg2 arg3]
+    (>!! insert-event-channel [doi type-name source-name date cnt arg1 arg2 arg3]))
 
 (go
   (while true
-    (let [row (<! insert-event-with-tick-channel)]
-      (apply insert-event-with-tick row))))
-
-(defn insert-event
-  "Insert event. Replace value for same (source, type, doi) combination."
-  [doi type-name source-name date cnt arg1 arg2 arg3]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
-    (try
-      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
-                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
-                    (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
-      (catch Exception e (prn "EXCEPTION" e)))))
+    (let [row (<! insert-event-channel)]
+      (apply insert-event row))))
 
 (defn insert-domain-event
   [domain type-id source-id date cnt]
@@ -156,6 +147,22 @@
     (doseq [args chunk]
       (apply insert-event args))))
 
+(defn insert-facts-chunk
+  "Insert chunk of inputs to insert-event"
+  [chunk]
+  (kdb/transaction
+    (prn "chunk insert-facts-chunk")
+    (doseq [args chunk]
+      (apply insert-fact args))))
+
+(defn insert-milestones-chunk
+  "Insert chunk of inputs to insert-event"
+  [chunk]
+  (kdb/transaction
+    (prn "chunk insert-milestones-chunk")
+    (doseq [args chunk]
+      (apply insert-milestone args))))
+
 (defn insert-doi-resolutions-count
   [chunk type-name source-name]
     (kdb/transaction
@@ -168,7 +175,7 @@
     (kdb/transaction
       (prn "chunk insert-doi-first-resolution")
       (doseq [[doi date] chunk]
-        (insert-event doi type-name source-name date nil nil nil nil))))
+        (insert-fact doi type-name source-name date nil nil nil nil))))
 
 (defn insert-domain-count
   [chunk type-name source-name]
@@ -452,18 +459,17 @@
         redacted (map (fn [[domain dates]]
                           [(if (not (member-domains domain)) domain "member domain") dates]) interpolated)]
           (if redact? redacted interpolated)))
-  
 
 
 (defn get-doi-facts
-
   "Get 'facts' (i.e. non-time-based events)"
   [doi]
-  (let [all-tables (d/all-milestone-tables)
+  (let [all-tables (d/all-fact-tables)
         all-events (map #(k/select %
                      (k/where (= :doi doi))) all-tables)
-        all (apply concat all-events)]
-    (decorate-events all)))
+        all (apply concat all-events)
+        exported (map d/coerce-event-out all)]
+    (decorate-events exported)))
 
 (defn get-doi-events 
   "Get 'events' (i.e. events with a date stamp)"
@@ -471,8 +477,19 @@
   (let [all-tables (d/all-event-tables)
         all-events (map #(k/select %
                      (k/where (= :doi doi))) all-tables)
-        all (apply concat all-events)]
-    (decorate-events all)))
+        all (apply concat all-events)
+        exported (map d/coerce-event-out all)]
+    (decorate-events exported)))
+
+(defn get-doi-milestones 
+  "Get 'events' (i.e. events with a date stamp)"
+  [doi]
+  (let [all-tables (d/all-milestone-tables)
+        all-events (map #(k/select %
+                     (k/where (= :doi doi))) all-tables)
+        all (apply concat all-events)
+        exported (map d/coerce-event-out all)]
+    (decorate-events exported)))
 
 (defn get-domain-events
   "Get domain 'events' (i.e. events with a date stamp)"
@@ -527,7 +544,7 @@ events))
                [the-doi (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
 
 (defn get-subdomains-for-domain [domain with-count?]
-    (let [count-type (get-type-id-by-name "total-referrals-subdomain")
+    (let [count-type (@type-ids-by-name :total-referrals-subdomain)
           subdomains (k/select d/referrer-subdomain-timelines
                      ; (k/fields :host)
                      (k/group :host)
@@ -561,3 +578,20 @@ events))
                      (k/limit num-events))
         decorated (decorate-events events)]
     decorated))
+
+(defn init!
+  "Stuff that needs to run before anything else."
+  []
+  ; Ensure that the relevant shard tables exist.
+  (d/ensure-shard-tables!)
+  (let [typs-by-id (into {} (map (fn [typ] (let [id (-> (k/select d/types (k/where {:ident (name (:name typ))})) first :id)] [id typ])) types/types))
+        srcs-by-id (into {} (map (fn [src] (let [id (-> (k/select d/sources (k/where {:ident (name (:name src))})) first :id)] [id src])) types/sources))
+        
+        typ-ids-by-name (into {} (map (fn [[id typ]] [(:name typ) id]) typs-by-id))
+        srcs-ids-by-name (into {} (map (fn [[id src]] [(:name src) id]) srcs-by-id))
+        ]
+    (reset! types-by-id typs-by-id)
+    (reset! sources-by-id srcs-by-id)
+  
+    (reset! type-ids-by-name typ-ids-by-name)
+    (reset! source-ids-by-name srcs-ids-by-name)))

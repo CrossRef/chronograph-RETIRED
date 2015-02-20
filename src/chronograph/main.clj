@@ -1,5 +1,6 @@
 (ns chronograph.main
-  (:require [chronograph.data :as d]
+  (:require [chronograph.data :as data]
+            [chronograph.db :as db]
             [chronograph.import.mdapi :as mdapi]
             [chronograph.import.laskuri :as laskuri]
             [chronograph.import.resolver :as resolver]
@@ -11,6 +12,8 @@
 (defn -main
   [& args]
   
+  (data/init!)
+      
   (when (= (first args) "import-first-deposit")
       (prn "DOI first deposit dates")
       (first-deposit/run (second args)))

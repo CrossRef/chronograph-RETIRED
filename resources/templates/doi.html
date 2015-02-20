@@ -3,13 +3,11 @@
 {% block "content" %}
 <div class="container">
 <div class="row">
-  <div class="col-md-12">
-    
+  <div class="col-md-12">    
     {% if extra-info.title %}<h1>{{extra-info.title}}</h1>{% endif %}
     <h2><a href="http://dx.doi.org/{{doi}}">{{doi}}</a></h2>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
     
-
     <table class="table table-striped event-table">
     <thead>
     <tr>
@@ -32,9 +30,9 @@
         </tr>
     {% endfor %}
     
-    {% for event in milestone-events %}
+    {% for event in events %}
     <tr>
-        <td><a href="/events/types/{{event.type.name|name}}">{{event.type-name}}</a></td>
+        <td><a href="/events/types/{{event.type.name|name}}">{{event.type.description}}</a></td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
         <td>{{event.source.description}}
             <dl class="extra-info">
@@ -45,6 +43,20 @@
         </td>
     </tr>
     {% endfor %}
+    {% for milestone in milestones %}
+    <tr>
+        <td><a href="/events/types/{{milestone.type.name|name}}">{{milestone.type.description}}</a></td>
+        <td>{{milestone.event|date:"YYYY-MM-dd"}}</td>
+        <td>{{milestone.source.description}}
+            <dl class="extra-info">
+                {% if milestone.arg1 %}<dt>{{milestone.type.arg1}}:</dt><dd>{{milestone.arg1}}</dd>{% endif %}
+                {% if milestone.arg2 %}<dt>{{milestone.type.arg2}}:</dt><dd>{{milestone.arg2}}</dd>{% endif %}
+                {% if milestone.arg3 %}<dt>{{milestone.type.arg3}}:</dt><dd>{{milestone.arg3}}</dd>{% endif %}
+            </dl>
+        </td>
+    </tr>
+    {% endfor %}
+
     </table>
     {% if first-date last-date %}
     <script>

@@ -11,16 +11,6 @@
 
 ; Line parsers for various Laskuri input formats.
 
-; (defn parse-string-timeline 
-;   "Take a line of «string» («date» «count»)* and return [string, {date count}]
-;   «period»-doi-periods-count
-;   «period»-domain-periods-count"
-;   [line]
-;   (let [splitten (read-string line)
-;         item (first splitten)
-;         pairs (partition 2 (rest splitten))
-;         timeline (map (fn [[dt cnt]] [(apply time/date-time dt) cnt]) pairs)]
-;     [item (into {} timeline)]))
 
 (defn parse-timeline 
   "Take a line of «string» («date» «count»)* and return [string, {date count}]
@@ -183,8 +173,6 @@
     "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."
     [base]    
     (prn "Run Laskuri Local Grouped")
-    
-    (db/ensure-shard-tables!)
     
     ; day-doi-periods-count
     (insert-doi-timelines base "day-doi-periods-count" :daily-resolutions :CrossRefLogs)

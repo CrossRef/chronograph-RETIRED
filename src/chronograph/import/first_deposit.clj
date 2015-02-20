@@ -16,12 +16,12 @@
         
         parsed (map (fn [[doi date-str]] [doi (format/parse date-format date-str)]) lines)    
         
-        ; map to format for data/insert-events-chunk-type-source
-        chunk-format (map (fn [[doi date]] [doi date 1 nil nil nil]) parsed)
+        ; map to format for data/insert-facts-chunk
+        chunk-format (map (fn [[doi date]] [doi :deposited :CrossRefDeposit date 1 nil nil nil]) parsed)
         
         ; chunks
         chunks (partition-all partition-size chunk-format)]
   (prn "Insert first deposit")
   (doseq [chunk chunks]
     (prn "Chunk")
-    (data/insert-events-chunk-type-source chunk :deposited :CrossRefDeposit))))
+    (data/insert-milestones-chunk chunk))))
