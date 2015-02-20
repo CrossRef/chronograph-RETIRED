@@ -77,20 +77,28 @@
                 (let [token (get-in ctx [:request :headers "token"])
                      body (slurp (get-in ctx [:request :body]))]
                 (try 
+                  (prn )
                   (let [body-content (json/read-str body)
                         doi (get body-content "doi")
                         type-name (get types/type-names (keyword (get body-content "type")))
                         ; ensure it's a recognised type name
                         source-name (get types/source-names (keyword (get body-content "source")))
+                        
+                        storage-type ((get types/types-by-name type-name) :storage)
+                        storage-type-allowed (#{:event :milestone :fact} storage-type)
+                        
                         arg1 (get body-content "arg1")
                         arg2 (get body-content "arg2")
                         arg3 (get body-content "arg3")]
-                    (if (or (empty? doi) (empty? token) (nil? type-name) (nil? source-name))
+                    
+                    (if (and storage-type-allowed
+                             (or (empty? doi) (empty? token) (nil? type-name) (nil? source-name)))
                       true
                       [false {::doi (crdoi/non-url-doi doi) 
                               ::token token
                               ::type-name type-name
                               ::source-name source-name
+                              ::storage-type storage-type
                               ::arg1 arg1
                               ::arg2 arg2
                               ::arg3 arg3}]))
@@ -119,9 +127,12 @@
                      arg1 (::arg1 ctx)
                      arg2 (::arg2 ctx)
                      arg3 (::arg3 ctx)]
-                 ; TODO DECIDE ON TYPE
-               (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
-               "OK"))
+                 ; Can't insert :timeline with API
+                 (condp = (::storage-type ctx)
+                   :event (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
+                   :milestone (d/insert-milestone-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
+                   :fact (d/insert-fact-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
+               "OK")))
 
 (defresource doi-facts
   [doi-prefix doi-suffix]

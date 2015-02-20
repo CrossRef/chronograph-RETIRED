@@ -97,8 +97,9 @@
 
 (defn insert-fact
   "Insert fact. Replace duplicates."; TODO make behaviour definable
-  [doi type-name source-name date cnt arg1 arg2 arg3]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+  [doi type-name source-name cnt arg1 arg2 arg3]
+  (let [date (t/now)
+        [table-name type-id source-id] (get-shard-info type-name source-name)]
     (try
       (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, event = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
                    [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3
@@ -107,17 +108,41 @@
 
 
 ; Large buffer in case we are blocked on table write as the table is ISAM and might be locked.
+; Don't allow timeline because it's not relevant (merge function etc required).
 (def insert-event-channel (chan 10000))
+(def insert-milestone-channel (chan 10000))
+(def insert-fact-channel (chan 10000))
 
 (defn insert-event-async
   "As insert-event but async. Block if buffer is full."
   [doi type-name source-name date cnt arg1 arg2 arg3]
+  (prn "insert-event-async")
     (>!! insert-event-channel [doi type-name source-name date cnt arg1 arg2 arg3]))
+
+(defn insert-milestone-async
+  "As insert-milestone but async. Block if buffer is full."
+  [doi type-name source-name date cnt arg1 arg2 arg3]
+    (>!! insert-milestone-channel [doi type-name source-name date cnt arg1 arg2 arg3]))
+
+(defn insert-fact-async
+  "As insert-fact but async. Block if buffer is full."
+  [doi type-name source-name cnt arg1 arg2 arg3]
+    (>!! insert-fact-channel [doi type-name source-name cnt arg1 arg2 arg3]))
 
 (go
   (while true
     (let [row (<! insert-event-channel)]
       (apply insert-event row))))
+
+(go
+  (while true
+    (let [row (<! insert-milestone-channel)]
+      (apply insert-milestone row))))
+
+(go
+  (while true
+    (let [row (<! insert-fact-channel)]
+      (apply insert-fact row))))
 
 (defn insert-domain-event
   [domain type-id source-id date cnt]
@@ -218,7 +243,6 @@
   "Insert parts of an DOI's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per DOI, source, type.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  ; TODO RENAME TO insert-doi-timeline
   [doi type-name source-name data merge-fn]
   (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
    (try 
@@ -565,7 +589,6 @@ events))
   "Get all tokens as mapping of {token {:allowed-types #{} :allowed-sources #{}}.
   There are only going to be a small handful."
   []
-  ; TODO MAKE KEYWORDS
   (let [types (k/select d/tokens)]
     (into {} (map (fn [item] [(:token item) item]) types))))
 

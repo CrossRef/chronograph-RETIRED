@@ -245,7 +245,7 @@
     (fn [input]
       (when input
         (assoc input
-          :allowed-sources (set (.split (:allowed-sources input) ","))
-          :allowed-types (set (.split (:allowed-types input) ",")))))))
+          :allowed-sources (set (map keyword (.split (:allowed-sources input) ",")))
+          :allowed-types (set (map keyword (.split (:allowed-types input) ","))))))))
 
 (def thing "other thing")
