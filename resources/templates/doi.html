@@ -5,8 +5,8 @@
 <div class="row">
   <div class="col-md-12">    
     {% if extra-info.title %}<h1>{{extra-info.title}}</h1>{% endif %}
-    <h2><a href="http://dx.doi.org/{{doi}}">{{doi}}</a></h2>
-    <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
+    <h2><a href="http://dx.doi.org/{{doi}}">{{response.doi}}</a></h2>
+    <p class="lead">Events from {{response.first-date|date:"d MMMM YYYY"}} to {{response.last-date|date:"d MMMM YYYY"}}</p>
     
     <table class="table table-striped event-table">
     <thead>
@@ -16,7 +16,7 @@
         <th>from</th>
     </tr>
     </thead>
-    {% for fact in facts %}
+    {% for fact in response.facts %}
     <tr>
         <td><a href="/events/types/{{fact.type.name|name}}">{{fact.type.description}}</a></td>
         <td>{{fact.count}}</td>
@@ -30,7 +30,7 @@
         </tr>
     {% endfor %}
     
-    {% for event in events %}
+    {% for event in response.events %}
     <tr>
         <td><a href="/events/types/{{event.type.name|name}}">{{event.type.description}}</a></td>
         <td>{{event.event|date:"YYYY-MM-dd"}}</td>
@@ -43,7 +43,7 @@
         </td>
     </tr>
     {% endfor %}
-    {% for milestone in milestones %}
+    {% for milestone in response.milestones %}
     <tr>
         <td><a href="/events/types/{{milestone.type.name|name}}">{{milestone.type.description}}</a></td>
         <td>{{milestone.event|date:"YYYY-MM-dd"}}</td>
@@ -58,11 +58,11 @@
     {% endfor %}
 
     </table>
-    {% if first-date last-date %}
+    {% if response.first-date response.last-date %}
     <script>
     $(function(){
         var time = new Rickshaw.Fixtures.Time();
-{% for timeline in timelines %}
+{% for timeline in response.timelines %}
     var data_timeline_{{forloop.counter}} = [
     {"x": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0},
     {% for dt, count in timeline.timeline %}{"x": new Date("{{ dt|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}} },
@@ -125,7 +125,7 @@
 });
 </script>
 
-{% for timeline in timelines %}
+{% for timeline in response.timelines %}
 <h3>{{timeline.name}}</h3>
 {% if timeline.min %}<p>Minimum: {{timeline.min}}, maximum: {{timeline.max}}.</p>{%endif%}
 <div id="content">
@@ -138,7 +138,6 @@
 
     {% else %}
     No data
-
     {% endif %}
     </div>
   </div>

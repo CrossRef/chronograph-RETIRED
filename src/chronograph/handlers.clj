@@ -15,13 +15,25 @@
             [selmer.filters :refer [add-filter!]])
   (:require [clojure.data.json :as json])
   (:require [crossref.util.doi :as crdoi]
-            [crossref.util.config :refer [config]]))
+            [crossref.util.config :refer [config]])
+  (:require [clj-time.format :as f])
+  (:require [clojure.walk :refer [prewalk]]))
 
 (add-filter! :name name)
 
 ; This can run as "Chronograph" or "DOI Event Collection"
 (def title (or (:title config) "DOI Chronograph"))
 (def homepage-template (or (:homepage-template config) "templates/index.html"))
+
+(def iso-format (f/formatters :date-time))
+
+(defn export-types-for-json
+  "Export structure, converting dates"
+  [input]
+    (prewalk #(if (= (type %) org.joda.time.DateTime)
+              (f/unparse iso-format %)
+               %)
+           input))
 
 (defn export-info
   "Export with string keys (suitable for various content types)"
@@ -77,7 +89,6 @@
                 (let [token (get-in ctx [:request :headers "token"])
                      body (slurp (get-in ctx [:request :body]))]
                 (try 
-                  (prn )
                   (let [body-content (json/read-str body)
                         doi (get body-content "doi")
                         type-name (get types/type-names (keyword (get body-content "type")))
@@ -261,9 +272,34 @@
   :handle-ok (fn [ctx]
                (ring-response (redirect (str "/dois/" (::doi ctx))))))
 
+(defn export-event
+  "Export an event's structure to normalise its types' argument fields"
+  [event]
+  (let [arg1-info (when-let [arg (:arg1 event)]
+               {(-> event :type :arg1) arg})
+        arg2-info (when-let [arg (:arg2 event)]
+              {(-> event :type :arg2) arg})
+        arg3-info (when-let [arg (:arg3 event)]
+              {(-> event :type :arg3) arg})
+        
+        event (-> event
+        (dissoc :arg1)
+                  (dissoc :arg2)
+                  (dissoc :arg3)
+                  (dissoc :type)
+                  (into arg1-info)
+                  (into arg2-info)
+                  (into arg3-info)
+                  (dissoc :type)
+                  (assoc :type (-> event :type :name))
+                  (dissoc :source)
+                  (assoc :source (-> event :source :name)))]
+    event))
+
+
 (defresource doi-page
   [doi]
-  :available-media-types ["text/html"]
+  :available-media-types ["text/html" "application/json"]
   :handle-ok (fn [ctx]
                (let [events (d/get-doi-events doi)
                      facts (d/get-doi-facts doi)
@@ -291,18 +327,29 @@
                      ; get extra info in
                      extra-info nil; (mdapi/get-metadata doi)
                      
-                     render-context {:title title
-                                     :first-date first-date
-                                     :last-date last-date
-                                     :first-date-pad first-date-pad
+                     response {:first-date first-date
+                               :last-date last-date
+                               :doi doi
+                               :events events
+                               :milestones milestones
+                               :facts facts
+                               :timelines timelines-with-extras}
+                     
+                     render-context {:first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
-                                     :doi doi
-                                     :events events
-                                     :milestones milestones
-                                     :facts facts
-                                     :timelines timelines-with-extras
-                                     :extra-info extra-info}]                 
-               (render-file "templates/doi.html" render-context))))
+                                     :extra-info extra-info
+                                     :response response}
+                     
+                     json-representation (let [tidied (assoc response
+                                                         :events (map export-event events)
+                                                         :milestones (map export-event milestones)
+                                                         :facts (map export-event facts)
+                                                         :timelines (map export-event timelines))
+                                               correct-types (export-types-for-json tidied)]
+                                           correct-types)]  
+                  (condp = (get-in ctx [:representation :media-type])
+                    "text/html" (render-file "templates/doi.html" render-context)
+                    "application/json" (json/write-str json-representation)))))
 
 (defresource domains-redirect
   []

@@ -116,7 +116,8 @@
   (reduce-kv (fn [m k v] (assoc m (coerce/from-date k) v)) {} timeline))
 
 (defn coerce-event-out [event]
-  (assoc event :event (coerce/from-sql-date (:event event))))
+  (assoc event :event (coerce/from-sql-date (:event event))
+               :inserted (coerce/from-sql-date (:inserted event))))
 
 (k/defentity referrer-domain-timelines
   (k/table "referrer_domain_timelines")

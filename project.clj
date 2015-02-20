@@ -20,8 +20,7 @@
                   [selmer "0.7.7"]
                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                   [org.clojure/data.csv "0.1.2"]
-                  [ring "1.3.2"]                  
-                  ]
+                  [ring "1.3.2"]]
   ; :global-vars {*warn-on-reflection* true} 
   :main ^:skip-aot chronograph.main
   :target-path "target/%s"

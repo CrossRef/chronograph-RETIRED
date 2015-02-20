@@ -101,7 +101,7 @@
   (let [date (t/now)
         [table-name type-id source-id] (get-shard-info type-name source-name)]
     (try
-      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, event = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
+      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
                    [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3
                     source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
       (catch Exception e (prn "EXCEPTION" e)))))
@@ -193,14 +193,14 @@
     (kdb/transaction
       (prn "chunk insert-doi-resolutions-count")
       (doseq [[doi cnt] chunk]
-        (insert-event doi type-name source-name nil cnt nil nil nil))))
+        (insert-fact doi type-name source-name cnt nil nil nil))))
 
 (defn insert-doi-first-resolution
   [chunk type-name source-name]
     (kdb/transaction
       (prn "chunk insert-doi-first-resolution")
       (doseq [[doi date] chunk]
-        (insert-fact doi type-name source-name date nil nil nil nil))))
+        (insert-milestone doi type-name source-name date nil nil nil nil))))
 
 (defn insert-domain-count
   [chunk type-name source-name]
@@ -370,7 +370,8 @@
   (when-let [timelines (k/select table-name
                         (k/where {:doi doi}))]    
                         (map (fn [timeline]
-                               (assoc timeline :timeline (sort-timeline-values (d/coerce-timeline-out (read-edn (:timeline timeline))))))
+                               (assoc timeline :timeline (sort-timeline-values (d/coerce-timeline-out (read-edn (:timeline timeline))))
+                                               :inserted (coerce/from-sql-time (:inserted timeline))))
                              timelines)))
 
 (defn get-doi-timelines
@@ -613,8 +614,7 @@ events))
         srcs-by-id (into {} (map (fn [src] (let [id (-> (k/select d/sources (k/where {:ident (name (:name src))})) first :id)] [id src])) types/sources))
         
         typ-ids-by-name (into {} (map (fn [[id typ]] [(:name typ) id]) typs-by-id))
-        srcs-ids-by-name (into {} (map (fn [[id src]] [(:name src) id]) srcs-by-id))
-        ]
+        srcs-ids-by-name (into {} (map (fn [[id src]] [(:name src) id]) srcs-by-id))]
     (reset! types-by-id typs-by-id)
     (reset! sources-by-id srcs-by-id)
   
