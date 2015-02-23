@@ -29,14 +29,12 @@
   (let [base (standard-format event)
         url (:arg2 event)
         title (second (.split url "wiki/"))
-        title-decoded (java.net.URLDecoder/decode title)
+        title-decoded (try (java.net.URLDecoder/decode title) (catch Exception _ ""))
         
-        wiki (.getHost (new java.net.URL url))
+        wiki (try (.getHost (new java.net.URL url)) (catch Exception _ ""))
         
         extra {"Title" title-decoded
-               "Wiki" wiki
-               }
-        ]
+               "Wiki" wiki}]
     (into base extra)))
 
 (def types [
@@ -66,7 +64,8 @@
      :arg2 "Page URL"
      :arg3 "Timestamp"
      :storage :event
-     :format wikipedia}
+     :format wikipedia
+     :expect-heartbeat true}
     {:name :first-resolution
      :description "First DOI resolution"
      :storage :milestone

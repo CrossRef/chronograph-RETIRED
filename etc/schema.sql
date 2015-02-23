@@ -224,6 +224,15 @@ CREATE TABLE crossmarked_dois (
     metadata TEXT
 );
 
+CREATE TABLE heartbeat_bucket (
+    bucket_date DATETIME NOT NULL,
+    type INT NOT NULL REFERENCES types(id),
+    heartbeat_count INT DEFAULT 0,
+    push_count INT DEFAULT 0
+);
+
+CREATE UNIQUE INDEX bucket_date_type ON heartbeat_bucket (bucket_date, type);
+
 -- Example for Wikipedia Cocytus PUSH API. Set real token.
 -- insert into tokens (token, allowed_sources, allowed_types) values ("TOKENHERE", "Cocytus", "WikipediaCitation");
 

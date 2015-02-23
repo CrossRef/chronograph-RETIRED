@@ -6,12 +6,41 @@
     <div class="col-md-12">    
       <h1>Status</h1>
       {% for type in types %}
+
       <h2>{{type.description}}</h2>
       {% if type.show-events-link %}
       Total <a href="/events/types/{{type.name|name}}">{{type.count}} {{type.storage-description}}</a>.
       {% else %}
       Total {{type.count}} {{type.storage-description}}.
       {% endif %}
+
+      {% if type.recent-heartbeats type.expect-heartbeat %}
+      <h3>Heartbeats last 24 hours</h3>
+      <table class="table">
+        <thead>
+        <td></td>
+        {% for heartbeat in type.recent-heartbeats %}
+          <td>{{heartbeat.date|date:"HH:mm"}}</td>
+        {% endfor %}
+        </thead>
+        <tbody>
+        <!-- Heartbeat not quite worked out. -->
+<!--         <tr>
+        <td>Heartbeats</td>
+        {% for heartbeat in type.recent-heartbeats %}
+          <td>{{heartbeat.heartbeat-count}}</td>
+        {% endfor %}
+        </tr>
+        <tr> -->
+        <td>API pushes</td>
+        {% for heartbeat in type.recent-heartbeats %}
+          <td>{{heartbeat.push-count}}</td>
+        {% endfor %}
+        </tr>
+        </tbody>
+      </table>
+      {% endif %}
+
       {% endfor %}
     </div>
   </div>

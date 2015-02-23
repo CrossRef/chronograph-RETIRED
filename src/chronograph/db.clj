@@ -249,4 +249,10 @@
           :allowed-sources (set (map keyword (.split (:allowed-sources input) ",")))
           :allowed-types (set (map keyword (.split (:allowed-types input) ","))))))))
 
-(def thing "other thing")
+(k/defentity heartbeat-bucket
+  (k/table "heartbeat_bucket")
+  (k/entity-fields
+    ["bucket_date" :date]
+    ["heartbeat_count" :heartbeat-count]
+    ["push_count" :push-count]
+    :type))

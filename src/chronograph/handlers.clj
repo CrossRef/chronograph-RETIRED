@@ -148,6 +148,8 @@
                    :event (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
                    :milestone (d/insert-milestone-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
                    :fact (d/insert-fact-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
+                 
+                 (d/inc-push-bucket type-name)
                "OK")))
 
 (defresource doi-facts
@@ -477,7 +479,8 @@
                (let [
                      types-with-count (map #(assoc % :count (d/type-table-count (:name %))
                                                      :storage-description (types/storage-descriptions (:storage %))
-                                                     :show-events-link (#{:event :milestone} (:storage %)))  types/types)
+                                                     :show-events-link (#{:event :milestone} (:storage %))
+                                                     :recent-heartbeats (d/get-recent-heartbeats (:name %)))  types/types)
                      
                      ; Don't show types with no events.
                      ; Not least becuase this is used for two purposes, no point confusing types.
