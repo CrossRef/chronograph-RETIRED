@@ -659,7 +659,7 @@ events))
 
 (defn inc-push-bucket [type-name]
   (let [now (truncate-date-for-bucket (t/now))]
-  (k/exec-raw ["INSERT INTO heartbeat_bucket SET push_count = 1, bucket_date = ?, type = ? ON DUPLICATE KEY UPDATE heartbeat_count = heartbeat_count + 1"
+  (k/exec-raw ["INSERT INTO heartbeat_bucket SET push_count = 1, bucket_date = ?, type = ? ON DUPLICATE KEY UPDATE push_count = push_count + 1"
                [(coerce/to-sql-time now) (@type-ids-by-name type-name)]])))
 
 (defn inc-heartbeat-bucket [type-name]
