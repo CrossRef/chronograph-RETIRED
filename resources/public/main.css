@@ -154,6 +154,8 @@ a, a:hover, a:visited {
 body {
     font-family: "Raleway","Helvetica Neue",Helvetica,Arial,sans-serif;
     font-size: 17px;
+    /*Needed for some long DOIs and URLs!*/
+    word-wrap: break-word;
 }
 
 @-webkit-keyframes spinner {
@@ -350,4 +352,8 @@ body {
 
 .event-table {
   font-size: 0.9em;
+}
+
+.event-table td {
+  max-width: 30em;
 }
