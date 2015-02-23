@@ -49,12 +49,12 @@
     {% for milestone in response.milestones %}
     <tr>
         <td><a href="/events/types/{{milestone.type-name|name}}">{{milestone.type-description}}</a></td>
-        <td>{{milestone.event|date:"YYYY-MM-dd"}}</td>
+        <td>{{milestone.date|date:"YYYY-MM-dd"}}</td>
         <td>
         {{milestone.source.description}}
         <dl class="extra-info">
             {% for title,value in milestones.extra %}
-            <dt>{{site-title}}</dt>
+            <dt>{{title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>
