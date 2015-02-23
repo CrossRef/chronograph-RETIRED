@@ -29,12 +29,16 @@
   (let [base (standard-format event)
         url (:arg2 event)
         title (second (.split url "wiki/"))
-        title-decoded (try (java.net.URLDecoder/decode title) (catch Exception _ ""))
+        title-decoded (try (java.net.URLDecoder/decode title) (catch Exception _ "(unknown)"))
         
-        wiki (try (.getHost (new java.net.URL url)) (catch Exception _ ""))
+        wiki (try (.getHost (new java.net.URL url)) (catch Exception _ "(unknown)"))
         
         extra {"Title" title-decoded
-               "Wiki" wiki}]
+               "Wiki" wiki
+               "Action" (:arg1 event)
+               "Page URL" (:arg2  event)
+               "Timestamp" (:arg3  event)
+               }]
     (into base extra)))
 
 (def types [

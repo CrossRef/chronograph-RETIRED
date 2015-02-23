@@ -29,7 +29,7 @@
         <td>       
         <dl class="extra-info">
             {% for title,value in event.type-info %}
-            <dt>{{site-title}}</dt>
+            <dt>{{title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>
