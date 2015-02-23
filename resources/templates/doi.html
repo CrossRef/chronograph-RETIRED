@@ -4,7 +4,7 @@
 <div class="row">
   <div class="col-md-12">    
     {% if extra-info.title %}<h1>{{extra-info.title}}</h1>{% endif %}
-    <h2><a href="http://dx.doi.org/{{doi}}">{{response.doi}}</a></h2>
+    <h2><a href="http://dx.doi.org/{{response.doi}}">{{response.doi}}</a></h2>
     <p class="lead">Events from {{response.first-date|date:"d MMMM YYYY"}} to {{response.last-date|date:"d MMMM YYYY"}}</p>
     
 {% if response.facts|not-empty  %}
