@@ -7,7 +7,7 @@
     <h2><a href="http://dx.doi.org/{{response.doi}}">{{response.doi}}</a></h2>
     <p class="lead">Events from {{response.first-date|date:"d MMMM YYYY"}} to {{response.last-date|date:"d MMMM YYYY"}}</p>
     
-{% if response.facts|not-empty  %}
+{% if response.facts|not-empty  %s}
     <table class="table table-striped event-table">
     <thead>
     <tr>
@@ -169,7 +169,7 @@
         <dl class="extra-info">
         {{event.source.description}}
             {% for title,value in event.type-info %}
-            <dt>{{site-title}}</dt>
+            <dt>{{title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>
