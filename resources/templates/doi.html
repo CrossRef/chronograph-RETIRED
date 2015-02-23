@@ -26,7 +26,7 @@
         {{fact.source.description}}
         <dl class="extra-info">
             {% for title,value in fact.extra %}
-            <dt>{{title}}</dt>
+            <dt>{{site-title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>
@@ -55,7 +55,7 @@
         {{milestone.source.description}}
         <dl class="extra-info">
             {% for title,value in milestones.extra %}
-            <dt>{{title}}</dt>
+            <dt>{{site-title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>
@@ -167,7 +167,7 @@
         <dl class="extra-info">
         {{event.source.description}}
             {% for title,value in event.type-info %}
-            <dt>{{title}}</dt>
+            <dt>{{site-title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>

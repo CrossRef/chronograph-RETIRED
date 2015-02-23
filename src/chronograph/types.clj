@@ -158,3 +158,5 @@
 (def storage-formats #{:timeline :event :milestone :fact})
 
 (def conflict-methods #{:replace :newer :older})
+
+(def storage-descriptions {:fact "facts" :milestone "milestones" :timeline "timelines" :event "events"})

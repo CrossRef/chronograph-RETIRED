@@ -605,6 +605,21 @@ events))
         decorated (decorate-events events)]
     decorated))
 
+; Same implementation but good to keep separate.
+; recent-facts and recent-timelines aren't meaningful.
+(def get-recent-milestones get-recent-events)
+  
+(defn table-count
+  "Return size of given table name"
+  [table-name]
+  (:cnt (first (k/select table-name (k/aggregate (count :*) :cnt)))))
+
+(defn type-table-count
+  "Return size of shard table by type name"
+  [type-name]
+  (let [shard-table-name (get-shard-table-name-from-type-name type-name)]
+    (table-count shard-table-name)))
+
 (defn init!
   "Stuff that needs to run before anything else."
   []
@@ -620,3 +635,4 @@ events))
   
     (reset! type-ids-by-name typ-ids-by-name)
     (reset! source-ids-by-name srcs-ids-by-name)))
+

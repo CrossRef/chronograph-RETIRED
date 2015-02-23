@@ -23,7 +23,7 @@
 (add-filter! :is-url #(or (.startsWith % "http://") (.startsWith % "https://")))
 
 ; This can run as "Chronograph" or "DOI Event Collection"
-(def title (or (:title config) "DOI Chronograph"))
+(def site-title (or (:title config) "DOI Chronograph"))
 (def homepage-template (or (:homepage-template config) "templates/index.html"))
 
 (def iso-format (f/formatters :date-time))
@@ -220,14 +220,14 @@
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
                ; Homepage template can be specified by config.
-   (render-file homepage-template {:title title
+   (render-file homepage-template {:site-title site-title
                                         :interesting-dois interesting-dois})))
 
 (defresource member-domains
   []
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-   (render-file "templates/member-domains.html" {:title title 
+   (render-file "templates/member-domains.html" {:site-title site-title 
                                                  :member-domains (sort d/member-domains)})))
 
 (defresource top-domains
@@ -242,7 +242,7 @@
                (let [; Include special things like 'no-referrer'
                      include-special (= (-> ctx :request :params :special) "true")
                      results (d/get-top-domains-ever true false (::top ctx) include-special)]
-                 (render-file "templates/top-domains.html" {:title title
+                 (render-file "templates/top-domains.html" {:site-title site-title
                                                             :include-members false
                                                             :top-domains results
                                                             :top (::top ctx)}))))
@@ -260,7 +260,7 @@
                (let [; Include special things like 'no-referrer'
                      include-special (= (-> ctx :request :params :special) "true")
                      results (d/get-top-domains-ever true true (::top ctx) include-special)]
-                 (render-file "templates/top-domains.html" {:title title
+                 (render-file "templates/top-domains.html" {:site-title site-title
                                                             :include-members true
                                                             :top-domains results
                                                             :top (::top ctx)}))))
@@ -272,31 +272,6 @@
             [doi {::doi doi}]))
   :handle-ok (fn [ctx]
                (ring-response (redirect (str "/dois/" (::doi ctx))))))
-
-; (defn export-event
-;   "Export an event's structure to normalise its types' argument fields"
-;   [event]
-;   (let [arg1-info (when-let [arg (:arg1 event)]
-;                {(-> event :type :arg1) arg})
-;         arg2-info (when-let [arg (:arg2 event)]
-;               {(-> event :type :arg2) arg})
-;         arg3-info (when-let [arg (:arg3 event)]
-;               {(-> event :type :arg3) arg})
-        
-;         event (-> event
-;         (dissoc :arg1)
-;                   (dissoc :arg2)
-;                   (dissoc :arg3)
-;                   (dissoc :type)
-;                   (into arg1-info)
-;                   (into arg2-info)
-;                   (into arg3-info)
-;                   (dissoc :type)
-;                   (assoc :type (-> event :type :name))
-;                   (dissoc :source)
-;                   (assoc :source (-> event :source :name)))]
-;     event))
-
 
 (defresource doi-page
   [doi]
@@ -333,12 +308,12 @@
                                :facts (map types/export-type-info facts)
                                :timelines (map types/export-type-info timelines-with-padding)}
                      
-                     render-context {:first-date-pad first-date-pad
+                     render-context {:site-title site-title
+                                     :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
                                      :response response}
                      
                      json-representation (export-types-for-json response)]
-                 (prn json-representation)
                   (condp = (get-in ctx [:representation :media-type])
                     "text/html" (render-file "templates/doi.html" render-context)
                     "application/json" (json/write-str json-representation)))))
@@ -383,7 +358,7 @@
                      
                      subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
-                     render-context {:title title
+                     render-context {:site-title site-title
                                      :first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
@@ -435,7 +410,7 @@
                      
                      subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
-                     render-context {:title title
+                     render-context {:site-title site-title
                                      :first-date first-date
                                      :last-date last-date
                                      :first-date-pad first-date-pad
@@ -453,25 +428,54 @@
   [type-name]
   :available-media-types ["text/html"]
   :exists? (fn [ctx]
-                (let [type-name (keyword type-name)
-                      type (get types/types-by-name type-name)]
-                  [type {::type type}]))
+                (let [num-events 50
+                      type-name (keyword type-name)
+                      type (get types/types-by-name type-name)
+                      storage (:storage type)
+                      ; Not meaningful to show for timelines (which don't really have a concrete 'time') or facts which manifestly don't.
+                      events (condp = storage
+                              :timeline nil
+                              :event (d/get-recent-events (:name type) num-events)
+                              :milestone (d/get-recent-milestones (:name type) num-events)
+                              :fact nil)]
+                  [(and type events) {::type type
+                                      ::num-events num-events
+                                      ::events events
+                                      ::storage storage
+                                      }]))
   
   :handle-ok (fn [ctx]
-               (let [num-events 50
-                     type (::type ctx)
-                     events (d/get-recent-events (:name type) num-events)
+               (let [type (::type ctx)
+                     storage (::storage ctx)
+                     events (::events ctx)
+                     num-events (::num-events ctx)
+                     
                      with-info (map types/export-type-info events)]
-                 (render-file "templates/events.html" {:title title
+                 (render-file "templates/events.html" {:site-title site-title
                                                        :events with-info
                                                        :type type
                                                        :num-events num-events}))))
 
+(defresource status
+  []
+  :available-media-types ["text/html"]
+  :handle-ok (fn [ctx]
+               (let [
+                     types-with-count (map #(assoc % :count (d/type-table-count (:name %))
+                                                     :storage-description (types/storage-descriptions (:storage %))
+                                                     :show-events-link (#{:event :milestone} (:storage %)))  types/types)
+                     
+                     ; Don't show types with no events.
+                     ; Not least becuase this is used for two purposes, no point confusing types.
+                     types-with-count (filter #(> (:count %) 0) types-with-count)]
+               (render-file "templates/status.html" {:site-title site-title
+                                                     :types types-with-count}))))
 
 
 (defroutes app-routes
   
   (GET "/" [] (home))
+  (GET "/status" [] (status))
   (GET "/member-domains" [] (member-domains))
   (GET "/top-domains-members" [] (top-domains-members))
   (GET "/top-domains" [] (top-domains))
