@@ -444,33 +444,39 @@
   [type-name]
   :available-media-types ["text/html"]
   :exists? (fn [ctx]
-                (let [num-events 50
+                (let [page-size 50
+                      offset (try (Integer/parseInt (-> ctx :request :params :offset)) (catch java.lang.NumberFormatException _ 0))
+                      limit (+ offset page-size)
                       type-name (keyword type-name)
                       type (get types/types-by-name type-name)
                       storage (:storage type)
                       ; Not meaningful to show for timelines (which don't really have a concrete 'time') or facts which manifestly don't.
                       events (condp = storage
                               :timeline nil
-                              :event (d/get-recent-events (:name type) num-events)
-                              :milestone (d/get-recent-milestones (:name type) num-events)
-                              :fact nil)]
+                              :event (d/get-recent-events (:name type) offset limit)
+                              :milestone (d/get-recent-milestones (:name type) offset limit)
+                              :fact nil)
+                      
+                      prev-offset (when (> offset 0) (max 0 (- offset page-size)))
+                      next-offset (when (> (count events) 0) (+ offset page-size))]
+                  
                   [(and type events) {::type type
-                                      ::num-events num-events
                                       ::events events
                                       ::storage storage
-                                      }]))
+                                      ::prev-offset prev-offset
+                                      ::next-offset next-offset}]))
   
   :handle-ok (fn [ctx]
                (let [type (::type ctx)
                      storage (::storage ctx)
                      events (::events ctx)
                      num-events (::num-events ctx)
-                     
                      with-info (map types/export-type-info events)]
                  (render-file "templates/events.html" {:site-title site-title
                                                        :events with-info
                                                        :type type
-                                                       :num-events num-events}))))
+                                                       :next-offset (::next-offset ctx)
+                                                       :prev-offset (::prev-offset ctx)}))))
 
 (defresource status
   []

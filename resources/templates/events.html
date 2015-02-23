@@ -6,7 +6,11 @@
   <div class="col-md-12">
     
     <h1>{{type.description}}</h1>
-    <p class="lead">Recent {{num-events}} events</p>    
+    <p class="lead">Recent events</p>    
+
+    {% if events|empty? %}
+    <p>No events</p>
+    {% else %}
 
     <table class="table table-striped event-table">
     <thead>
@@ -25,7 +29,7 @@
         <td>       
         <dl class="extra-info">
             {% for title,value in event.type-info %}
-            <dt>{{title}}</dt>
+            <dt>{{site-title}}</dt>
             <dd>{% if value|is-url %}<a href="{{value}}">{{value}}</a>{% else %}{{value}}{% endif %}</dd>
             {% endfor %}
             </dl>
@@ -33,7 +37,18 @@
     </tr>
     {% endfor %}
     </table>
-        </div>
+    {% endif %}
+
+
+    <nav>
+      <ul class="pager">
+        {% if prev-offset %}<li><a href="?offset={{prev-offset}}">Previous</a></li>{% endif %}
+        {% if next-offset %}<li><a href="?offset={{next-offset}}">Next</a></li>{% endif %}
+      </ul>
+    </nav>
+    </div>
+    
+    
     </div>
 </div>  
 

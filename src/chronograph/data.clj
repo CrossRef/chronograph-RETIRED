@@ -596,12 +596,13 @@ events))
     (into {} (map (fn [item] [(:token item) item]) types))))
 
 (defn get-recent-events
-  [type-name num-events]
+  [type-name offset limit]
   
   (let [shard-table-name (get-shard-table-name-from-type-name type-name)
         events (k/select shard-table-name
                      (k/order :event :desc)
-                     (k/limit num-events))
+                     (k/offset offset)
+                     (k/limit limit))
         decorated (decorate-events events)]
     decorated))
 
