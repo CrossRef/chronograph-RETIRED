@@ -1,5 +1,4 @@
 {% extends "templates/base.html" %}
-
 {% block "content" %}
 <div class="container">
 <div class="row">
@@ -8,7 +7,7 @@
     <h2><a href="http://dx.doi.org/{{doi}}">{{response.doi}}</a></h2>
     <p class="lead">Events from {{response.first-date|date:"d MMMM YYYY"}} to {{response.last-date|date:"d MMMM YYYY"}}</p>
     
-    {% if response.facts|not-empty  %}
+{% if response.facts|not-empty  %}
     <table class="table table-striped event-table">
     <thead>
     <tr>
@@ -18,7 +17,7 @@
     </tr>
     </thead>
     <tbody>
-    {% for fact in response.facts %}
+{% for fact in response.facts %}
     <tr>
         <td><a href="/events/types/{{fact.type-name|name}}">{{fact.type-description}}</a></td>
         <td>{{fact.count}}</td>
@@ -32,10 +31,10 @@
             </dl>
         </td>
         </tr>
-    {% endfor %}
+{% endfor %}
     </tbody>
     </table>
-    {% endif %}
+{% endif %}
     
     {% if response.milestones|not-empty  %}
     <table class="table table-striped event-table">
@@ -65,6 +64,9 @@
     </table>
     {% endif %}
 
+{% for timeline in response.timelines %}
+{% endfor %}
+
     {% if response.first-date response.last-date %}
     <script>
     $(function(){
@@ -72,10 +74,10 @@
 {% for timeline in response.timelines %}
 
     var data_timeline_{{forloop.counter}} = [
-    {"x": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0},
-    {% for dt, count in timeline.timeline %}{"x": new Date("{{ dt|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}} },
-    {%endfor %}
-    {"x": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0}
+    {"x": new Date("{{ first-date-pad}}").getTime() / 1000, "y": 0},
+    {% for dt, count in timeline.timeline %}{"x": {{dt}}, "y": {{count}} },
+    {% endfor %}
+    {"x": new Date("{{ last-date-pad}}").getTime() / 1000, "y": 0}
     ];
 
     var graph = new Rickshaw.Graph( {
@@ -93,7 +95,7 @@
                 name: 'count',
                 stroke_width: 30,
                 data: data_timeline_{{forloop.counter}}}]
-            });
+        });
 
     graph.render();
 

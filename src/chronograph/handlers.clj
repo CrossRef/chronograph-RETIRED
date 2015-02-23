@@ -4,7 +4,8 @@
             [chronograph.util :as util]
             [chronograph.import.mdapi :as mdapi]
             [chronograph.types :as types])
-  (:require [clj-time.core :as t])
+  (:require [clj-time.core :as t]
+            [clj-time.coerce :as coerce])
   (:require [compojure.core :refer [context defroutes GET ANY POST]]
             [compojure.handler :as handler]
             [compojure.route :as route])
@@ -28,12 +29,15 @@
 
 (def iso-format (f/formatters :date-time))
 
-(defn export-types-for-json
-  "Export structure, converting dates"
-  [input]
+(defn convert-all-dates
+  "Convert all dates in structure"
+  [input fmt]
     (prewalk #(if (= (type %) org.joda.time.DateTime)
-              (f/unparse iso-format %)
-               %)
+              (condp = fmt
+                :iso8601 (f/unparse iso-format %)
+                :seconds (/ (coerce/to-long %) 1000)
+                ; Otherwise return it unchanged
+                %)%)
            input))
 
 (defn export-info
@@ -299,6 +303,12 @@
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
+                     
+                     date-format (condp = (get-in ctx [:representation :media-type])
+                                   "text/html" :seconds
+                                   "application/json" :iso8601)
+                     
+                     
                                           
                      response {:first-date first-date
                                :last-date last-date
@@ -308,15 +318,19 @@
                                :facts (map types/export-type-info facts)
                                :timelines (map types/export-type-info timelines-with-padding)}
                      
+                     ; Dates in response need converting. This is sent back as JSON or used in the HTML.
+                     ; Dates in render-context can be 'real' dates as they're consumed by the template.
+                     response-with-dates (convert-all-dates response date-format)
+                     
                      render-context {:site-title site-title
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
-                                     :response response}
-                     
-                     json-representation (export-types-for-json response)]
+                                     :response response-with-dates}]
+                 
                   (condp = (get-in ctx [:representation :media-type])
+                    
                     "text/html" (render-file "templates/doi.html" render-context)
-                    "application/json" (json/write-str json-representation)))))
+                    "application/json" (json/write-str response-with-dates)))))
 
 (defresource domains-redirect
   []
