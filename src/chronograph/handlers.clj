@@ -327,8 +327,8 @@
                      render-context {:site-title site-title
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
-                                     :response response-with-dates}]
-                 
+                                     :response response}]
+                                   
                   (condp = (get-in ctx [:representation :media-type])
                     
                     "text/html" (render-file "templates/doi.html" render-context)
