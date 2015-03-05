@@ -107,10 +107,10 @@
                         arg2 (get body-content "arg2")
                         arg3 (get body-content "arg3")]
                     
-                    (if (and storage-type-allowed
-                             (or (empty? doi) (empty? token) (nil? type-name) (nil? source-name)))
+                    ; DOI not required, it may be a heartbeat.
+                    (if (or (empty? token) (nil? type-name) (nil? source-name) (not storage-type-allowed))
                       true
-                      [false {::doi (crdoi/non-url-doi doi) 
+                      [false {::doi doi
                               ::token token
                               ::type-name type-name
                               ::source-name source-name
@@ -142,14 +142,22 @@
                      source-name (::source-name ctx)
                      arg1 (::arg1 ctx)
                      arg2 (::arg2 ctx)
-                     arg3 (::arg3 ctx)]
+                     arg3 (::arg3 ctx)
+                     ; If there's no DOI, record this as a heartbeat.
+                     is-heartbeat (or (nil? doi) (empty? doi))]
                  ; Can't insert :timeline with API
-                 (condp = (::storage-type ctx)
-                   :event (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
-                   :milestone (d/insert-milestone-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
-                   :fact (d/insert-fact-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))
-                 
-                 (d/inc-push-bucket type-name)
+                
+                (when-not is-heartbeat
+                  (let [doi (crdoi/non-url-doi doi)]                 
+                     (condp = (::storage-type ctx)
+                       :event (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
+                       :milestone (d/insert-milestone-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
+                       :fact (d/insert-fact-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))))
+                
+                (if is-heartbeat
+                 (d/inc-heartbeat-bucket type-name)
+                 (d/inc-push-bucket type-name))
+                
                "OK")))
 
 (defresource doi-facts
@@ -486,7 +494,7 @@
                      types-with-count (map #(assoc % :count (d/type-table-count (:name %))
                                                      :storage-description (types/storage-descriptions (:storage %))
                                                      :show-events-link (#{:event :milestone} (:storage %))
-                                                     :recent-heartbeats (d/get-recent-heartbeats (:name %)))  types/types)
+                                                     :recent-heartbeats (d/get-recent-heartbeats (:name %))) types/types)
                      
                      ; Don't show types with no events.
                      ; Not least becuase this is used for two purposes, no point confusing types.
