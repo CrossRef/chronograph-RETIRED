@@ -24,14 +24,13 @@
         {% endfor %}
         </thead>
         <tbody>
-        <!-- Heartbeat not quite worked out. -->
-<!--         <tr>
+        <tr>
         <td>Heartbeats</td>
         {% for heartbeat in type.recent-heartbeats %}
           <td>{{heartbeat.heartbeat-count}}</td>
         {% endfor %}
         </tr>
-        <tr> -->
+        <tr>
         <td>API pushes</td>
         {% for heartbeat in type.recent-heartbeats %}
           <td>{{heartbeat.push-count}}</td>

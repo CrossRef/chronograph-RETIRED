@@ -646,15 +646,14 @@ events))
   (let [date-truncated (truncate-date-for-bucket date)
         result (k/select d/heartbeat-bucket (k/where {:type (@type-ids-by-name type-name) :bucket_date (coerce/to-sql-time date-truncated)}))]
   
-    ; Return both so we know what the truncated date is.
-    {:date date-truncated :heartbeat-count (or (-> result first :api-count) 0) :push-count (or (-> result first :push-count) 0)}))
+      ; Return both so we know what the truncated date is.
+    {:date date-truncated :heartbeat-count (or (-> result first :heartbeat-count) 0) :push-count (or (-> result first :push-count) 0)}))
   
   
 (defn get-recent-heartbeats [type-name]
   (let [now (t/now)
         hours (map #(t/minus now (t/hours %)) (range 24))
         values (map (fn [hour] (get-heartbeat-bucket type-name hour)) hours)]
-    
     values))
 
 (defn inc-push-bucket [type-name]
