@@ -328,19 +328,23 @@
                                :facts (map types/export-type-info facts)
                                :timelines (map types/export-type-info timelines-with-padding)}
                      
-                     ; Dates in response need converting. This is sent back as JSON or used in the HTML.
+                     ; Dates in response need converting. This is sent back as JSON.
                      ; Dates in render-context can be 'real' dates as they're consumed by the template.
-                     response-with-dates (convert-all-dates response date-format)
+                     response-all-dates-converted (convert-all-dates response date-format)
+                     
+                     ; The dates in the timeline are used in JavaScript plotting, so convert only those for the HTML.
+                     ; Don't touch others as they need to be real dates for the template rendering.
+                     response-timeline-dates-converted (assoc response :timelines (convert-all-dates (:timelines response) date-format))
                      
                      render-context {:site-title site-title
                                      :first-date-pad first-date-pad
                                      :last-date-pad last-date-pad
-                                     :response response}]
-                                   
+                                     :response response-timeline-dates-converted}]
+                                                    
                   (condp = (get-in ctx [:representation :media-type])
                     
                     "text/html" (render-file "templates/doi.html" render-context)
-                    "application/json" (json/write-str response-with-dates)))))
+                    "application/json" (json/write-str response-all-dates-converted)))))
 
 (defresource domains-redirect
   []
