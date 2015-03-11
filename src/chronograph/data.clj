@@ -60,11 +60,13 @@
   "Take type-name and source-name and return triplet of [shard-table-name type-id source-id]
   Packaged for frequent use."
   [type-name source-name]
-  (let [type-id (@type-ids-by-name type-name)
-        storage-format (-> types/types-by-name type-name :storage)
+  (let [typ (-> types/types-by-name type-name)
+        type-id (@type-ids-by-name type-name)
+        storage-format (:storage typ)
         shard-table-name (d/shard-name storage-format type-name)
-        source-id (@source-ids-by-name source-name)]
-    [shard-table-name type-id source-id]))
+        source-id (@source-ids-by-name source-name)
+        conflict-resolution-method (:conflict typ)]
+    [shard-table-name type-id source-id conflict-resolution-method]))
 
 
 (defn decorate-events
@@ -79,31 +81,89 @@
 (defn insert-event
   "Insert event. No such thing as a duplicate."
   [doi type-name source-name date cnt arg1 arg2 arg3]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+  ; Discard the conflict resolution method as they don't apply for events.
+  (let [[table-name type-id source-id _] (get-shard-info type-name source-name)]
     (try
       (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
                    [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
       (catch Exception e (prn "EXCEPTION" e)))))
 
 (defn insert-milestone
-  "Insert milestone. Replace duplicates." ; TODO make behaviour definable
+  "Insert milestone using type's conflict resolution strategy with regard to the event dates."
   [doi type-name source-name date cnt arg1 arg2 arg3]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
     (try
-      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, event = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
-                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3
-                    source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
+      (condp = conflict-resolution-method
+        :older (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
+                                                            count = IF(event<VALUES(event), count, VALUES(count)),
+                                                            event = IF(event<VALUES(event), event, VALUES(event)),
+                                                            inserted = IF(event<VALUES(event), inserted, VALUES(inserted)),
+                                                            source = IF(event<VALUES(event), source, VALUES(source)),
+                                                            type = IF(event<VALUES(event), type, VALUES(type)),
+                                                            arg1 = IF(event<VALUES(event), arg1, VALUES(arg1)),
+                                                            arg2 = IF(event<VALUES(event), arg2, VALUES(arg2)),
+                                                            arg3 = IF(event<VALUES(event), arg3, VALUES(arg3));)")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
+        :newer (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
+                                                            count = IF(event>VALUES(event), count, VALUES(count)),
+                                                            event = IF(event>VALUES(event), event, VALUES(event)),
+                                                            inserted = IF(event>VALUES(event), inserted, VALUES(inserted)),
+                                                            source = IF(event>VALUES(event), source, VALUES(source)),
+                                                            type = IF(event>VALUES(event), type, VALUES(type)),
+                                                            arg1 = IF(event>VALUES(event), arg1, VALUES(arg1)),
+                                                            arg2 = IF(event>VALUES(event), arg2, VALUES(arg2)),
+                                                            arg3 = IF(event>VALUES(event), arg3, VALUES(arg3));)")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
+        :replace (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
+                                                            count = VALUES(count),
+                                                            event = VALUES(event),
+                                                            inserted = VALUES(inserted),
+                                                            source = VALUES(source),
+                                                            type = VALUES(type),
+                                                            arg1 = VALUES(arg1),
+                                                            arg2 = VALUES(arg2),
+                                                            arg3 = VALUES(arg3);)")
+                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]]))
       (catch Exception e (prn "EXCEPTION" e)))))
 
 (defn insert-fact
-  "Insert fact. Replace duplicates."; TODO make behaviour definable
+  "Insert fact using type's conflict resolution strategy with regard to the insertion date."
   [doi type-name source-name cnt arg1 arg2 arg3]
   (let [date (t/now)
-        [table-name type-id source-id] (get-shard-info type-name source-name)]
+        [table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
     (try
-      (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = ?, inserted = ?, count = ?, arg1 = ?, arg2 = ?, arg3 = ?")
-                   [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3
-                    source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
+      (condp = conflict-resolution-method
+        :older (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?)
+                                                           ON DUPLICATE KEY UPDATE
+                                                           source = IF (inserted<VALUES(inserted), inserted, VALUES(inserted),
+                                                           inserted = IF (inserted<VALUES(inserted), inserted, VALUES(inserted)),
+                                                           count = IF (inserted<VALUES(inserted), count, VALUES(count)),
+                                                           arg1 = IF (inserted<VALUES(inserted), arg1, VALUES(arg1)),
+                                                           arg2 = IF (inserted<VALUES(inserted), arg2, VALUES(arg2)),
+                                                           arg3 = IF (inserted<VALUES(inserted), arg3, VALUES(arg3))")
+                   [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
+        
+        
+        :newer (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?)
+                                                           ON DUPLICATE KEY UPDATE
+                                                           source = IF (inserted>VALUES(inserted), inserted, VALUES(inserted),
+                                                           inserted = IF (inserted>VALUES(inserted), inserted, VALUES(inserted)),
+                                                           count = IF (inserted>VALUES(inserted), count, VALUES(count)),
+                                                           arg1 = IF (inserted>VALUES(inserted), arg1, VALUES(arg1)),
+                                                           arg2 = IF (inserted>VALUES(inserted), arg2, VALUES(arg2)),
+                                                           arg3 = IF (inserted>VALUES(inserted), arg3, VALUES(arg3))")
+                   [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]])
+        
+        
+        :replace (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?)
+                                                             ON DUPLICATE KEY UPDATE
+                                                             source = VALUES(source),
+                                                             inserted = VALUES(inserted),
+                                                             count = VALUES(count),
+                                                             arg1 = VALUES(arg1),
+                                                             arg2 = VALUES(arg2),
+                                                             arg3 = VALUES(arg3)")
+                   [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]]))
       (catch Exception e (prn "EXCEPTION" e)))))
 
 
@@ -204,7 +264,7 @@
 
 (defn insert-domain-count
   [chunk type-name source-name]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
     ; Not sharded for domains (yet).
     (kdb/transaction
       (prn "chunk insert-domain-count")
@@ -213,7 +273,7 @@
 
 (defn insert-subdomain-count
   [chunk type-name source-name]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
     ; Not sharded for domains (yet).
     (kdb/transaction
       (prn "chunk insert-domain-count")
@@ -244,7 +304,7 @@
   This should be used to update large quantities of data per DOI, source, type.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [doi type-name source-name data merge-fn]
-  (let [[table-name type-id source-id] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
    (try 
       (let [initial-row (first (k/select table-name
                                          (k/where {:doi doi
@@ -282,7 +342,7 @@
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [host domain type-name source-name data merge-fn]
   ; For domains use a single (non-sharded) table as the index load is far far lighter.
-  (let [[_ type-id source-id] (get-shard-info type-name source-name)]
+  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
     (when (and (< (.length domain) 128) (< (.length host) 128))
       (let [initial-row (first (k/select d/referrer-domain-timelines
                                          (k/where {:domain domain
@@ -325,7 +385,7 @@
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [host domain type-name source-name data merge-fn]
   ; For domains use a single (non-sharded) table as the index load is far far lighter.
-  (let [[_ type-id source-id] (get-shard-info type-name source-name)]
+  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
     (when (and (< (.length domain) 128) (< (.length host) 128))      
       (let [initial-row (first (k/select d/referrer-subdomain-timelines
                                          (k/where {:domain domain
@@ -596,6 +656,7 @@ events))
     (into {} (map (fn [item] [(:token item) item]) types))))
 
 (defn get-recent-events
+  "Get recent events ordered by event date"
   [type-name offset limit]
   
   (let [shard-table-name (get-shard-table-name-from-type-name type-name)
