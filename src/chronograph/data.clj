@@ -82,7 +82,8 @@
   "Insert event. No such thing as a duplicate."
   [doi type-name source-name date cnt arg1 arg2 arg3]
   ; Discard the conflict resolution method as they don't apply for events.
-  (let [[table-name type-id source-id _] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id _] (get-shard-info type-name source-name)
+        doi (crdoi/non-url-doi doi)]
     (try
       (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
                    [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
@@ -91,7 +92,8 @@
 (defn insert-milestone
   "Insert milestone using type's conflict resolution strategy with regard to the event dates."
   [doi type-name source-name date cnt arg1 arg2 arg3]
-  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+        doi (crdoi/non-url-doi doi)]
     (try
       (condp = conflict-resolution-method
         :older (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
@@ -130,7 +132,8 @@
   "Insert fact using type's conflict resolution strategy with regard to the insertion date."
   [doi type-name source-name cnt arg1 arg2 arg3]
   (let [date (t/now)
-        [table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
+        [table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+        doi (crdoi/non-url-doi doi)]
     (try
       (condp = conflict-resolution-method
         :older (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?)
@@ -304,7 +307,8 @@
   This should be used to update large quantities of data per DOI, source, type.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
   [doi type-name source-name data merge-fn]
-  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
+  (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+        doi (crdoi/non-url-doi doi)]
    (try 
       (let [initial-row (first (k/select table-name
                                          (k/where {:doi doi
@@ -428,7 +432,7 @@
   "Get all timelines for a DOI from named table"
   [doi table-name]
   (when-let [timelines (k/select table-name
-                        (k/where {:doi doi}))]    
+                        (k/where {:doi (crdoi/non-url-doi doi)}))]    
                         (map (fn [timeline]
                                (assoc timeline :timeline (sort-timeline-values (d/coerce-timeline-out (read-edn (:timeline timeline))))
                                                :inserted (coerce/from-sql-time (:inserted timeline))))
@@ -437,7 +441,8 @@
 (defn get-doi-timelines
   "Get all timelines for a DOI from all tables"
   [doi]
-  (let [tables (d/all-timeline-tables)
+  (let [doi (crdoi/non-url-doi doi)
+        tables (d/all-timeline-tables)
         all-events (apply concat (map #(get-doi-timelines-for-table doi %) tables))]
     (decorate-events all-events)))
 
@@ -551,7 +556,8 @@
 (defn get-doi-facts
   "Get 'facts' (i.e. non-time-based events)"
   [doi]
-  (let [all-tables (d/all-fact-tables)
+  (let [doi (crdoi/non-url-doi doi)
+        all-tables (d/all-fact-tables)
         all-events (map #(k/select %
                      (k/where (= :doi doi))) all-tables)
         all (apply concat all-events)
@@ -561,7 +567,8 @@
 (defn get-doi-events 
   "Get 'events' (i.e. events with a date stamp)"
   [doi]
-  (let [all-tables (d/all-event-tables)
+  (let [doi (crdoi/non-url-doi doi)
+        all-tables (d/all-event-tables)
         all-events (map #(k/select %
                      (k/where (= :doi doi))) all-tables)
         all (apply concat all-events)
@@ -571,7 +578,8 @@
 (defn get-doi-milestones 
   "Get 'events' (i.e. events with a date stamp)"
   [doi]
-  (let [all-tables (d/all-milestone-tables)
+  (let [doi (crdoi/non-url-doi doi)
+        all-tables (d/all-milestone-tables)
         all-events (map #(k/select %
                      (k/where (= :doi doi))) all-tables)
         all (apply concat all-events)
@@ -626,9 +634,9 @@ events))
                (k/fields [:sources.name :source-name]
                           [:types.name :type-name]))]
 events))
-(defn set-first-resolution-log [the-doi date]
+(defn set-first-resolution-log [doi date]
   (k/exec-raw ["insert into doi (doi, firstResolutionLog) values (?, ?) on duplicate key update firstResolutionLog = ?"
-               [the-doi (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
+               [(crdoi/non-url-doi doi) (coerce/to-sql-date date) (coerce/to-sql-date date)]]))
 
 (defn get-subdomains-for-domain [domain with-count?]
     (let [count-type (@type-ids-by-name :total-referrals-subdomain)
