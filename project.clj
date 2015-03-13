@@ -8,7 +8,6 @@
                   [clj-http "1.0.1"]
                   [clj-time "0.8.0"]
                   [org.clojure/data.json "0.2.5"]
-                  [compojure "1.3.0"]
                   [http-kit "2.1.16"]
                   [org.clojure/java.jdbc "0.3.6"]
                   [korma "0.3.0"]

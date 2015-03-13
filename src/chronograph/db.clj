@@ -167,6 +167,30 @@
         (assoc input
           :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
 
+(k/defentity doi-domain-timelines
+  (k/table "doi_domain_referral_timelines")
+  (k/pk :id)
+  (k/entity-fields
+    :id
+    :doi
+    :host
+    :source
+    :type
+    :inserted
+    :timeline)
+  (k/belongs-to sources {:fk :source})
+  (k/belongs-to types {:fk :type})
+  (k/prepare
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (pr-str (coerce-timeline-in d)))))))
+  (k/transform
+    (fn [input]
+      (when input
+        (assoc input
+          :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
+
 
 (k/defentity referrer-domain-events
   (k/table "referrer_domain_events")

@@ -352,6 +352,7 @@
                                          (k/where {:domain domain
                                                     :host host
                                                     :type type-id
+                                                    ; TODO should source be used to select? Is it part of identity?
                                                     :source source-id})))
             initial-row-data (or (:timeline initial-row) {})
             merged-data (merge-with merge-fn initial-row-data data)]
@@ -381,7 +382,47 @@
     (prn "chunk insert-domain-timelines")
     (doseq [[domain timeline] chunk]
       ; TODO only the host (not the domain) is supplied in current data format.
+      ; TODO merge function should be taken from the types registry.
       (insert-domain-timeline domain domain type-name source-name timeline #(max %1 %2)))))
+
+(defn insert-doi-domain-timeline
+  "Insert parts of a DOI / Domain event timeline. This will merge the existing data."
+  [doi host type-name source-name data merge-fn]
+
+  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
+    (when (and (< (.length doi) 700) (< (.length host) 128))
+      (let [initial-row (first (k/select d/doi-domain-timelines
+                                         (k/where {:doi doi
+                                                    :host host
+                                                    :type type-id
+                                                    :source source-id})))
+            initial-row-data (or (:timeline initial-row) {})
+            merged-data (merge-with merge-fn initial-row-data data)]
+        
+        (if initial-row
+          (k/update d/doi-domain-timelines
+                    (k/where {:doi doi
+                              :host host
+                              :type type-id
+                              :source source-id})
+                    (k/set-fields {:timeline merged-data
+                                   :inserted (coerce/to-sql-time (t/now))}))
+          
+          (k/insert d/doi-domain-timelines
+                    (k/values {:doi doi
+                               :host host
+                               :type type-id
+                               :source source-id
+                               :inserted (coerce/to-sql-time (t/now))
+                               :timeline merged-data})))))))
+
+(defn insert-doi-domain-timelines
+  "Insert chunk of doi-domain timelines in a transaction."
+  [chunk type-name source-name]
+  (kdb/transaction
+    (prn "chunk insert-doi-domain-timelines")
+    (doseq [[[doi host] timeline] chunk]
+      (insert-doi-domain-timeline doi host type-name source-name timeline #(max %1 %2)))))
 
 (defn insert-subdomain-timeline
   "Insert parts of a Referrer Subdomain's event timeline. This will merge the existing data.
@@ -467,6 +508,35 @@
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
          timelines)))
+
+(defn get-doi-domain-timelines
+  "Get all timelines for a DOI / domain referral"
+  [doi domain]
+  (when-let [timelines (k/select
+    d/doi-domain-timelines
+    (k/where {:host domain :doi doi})
+    (k/with d/types))]
+    (map (fn [timeline]
+           (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
+         timelines)))
+
+(defn get-available-doi-domain-timelines-for-doi
+  "For a DOI return domains for all timelines"
+  [doi]
+  (map :host
+    (k/select
+      d/doi-domain-timelines
+      (k/where {:doi doi})
+      (k/fields [:host]))))
+
+(defn get-available-doi-domain-timelines-for-domain
+  "For a domain return domains for all timelines"
+  [host]
+  (map :doi
+    (k/select
+      d/doi-domain-timelines
+      (k/where {:host host})
+      (k/fields [:doi]))))
 
 (defn get-last-run-date
   "Last date that the DOI import was run."

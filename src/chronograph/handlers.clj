@@ -318,8 +318,6 @@
                                    "text/html" :seconds
                                    "application/json" :iso8601)
                      
-                     
-                                          
                      response {:first-date first-date
                                :last-date last-date
                                :doi doi
@@ -399,6 +397,82 @@
                                      :whitelisted whitelisted
                                      }]
                (render-file "templates/domain.html" render-context))))
+
+
+(defresource doi-domain-page
+  [doi host]
+  :available-media-types ["text/html"]
+  :handle-ok (fn [ctx]
+
+                              (let [[subdomain true-domain etld] (util/get-main-domain host)
+                     domain (.toLowerCase (str true-domain "." etld))
+                     
+                     whitelisted (d/domain-whitelisted? domain)
+                     
+                     timelines (d/get-doi-domain-timelines doi host)
+                     timeline-dates (apply merge (map #(keys (:timeline %)) timelines))
+                                       
+                     all-dates-sorted (sort t/before? timeline-dates)
+                     first-date (first all-dates-sorted)
+                     last-date (last all-dates-sorted)
+                     
+                     interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/months 1))) timelines))
+                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
+                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
+                                                 interpolated-timelines)
+                    
+                     ;; add 1 day of padding either side for charting
+                     first-date-pad (when first-date (t/minus first-date (t/days 1)))
+                     last-date-pad (when last-date (t/plus last-date (t/days 1)))
+                                          
+                     render-context {:site-title site-title
+                                     :first-date first-date
+                                     :last-date last-date
+                                     :first-date-pad first-date-pad
+                                     :last-date-pad last-date-pad
+                                     :domain domain
+                                     :doi doi
+                                     :timelines timelines-with-padding
+                                     :whitelisted whitelisted}]
+                                
+               (render-file "templates/doi-domain.html" render-context))))
+
+
+
+
+; Get list of DOIs for DOI-Domain timelines with this domain.
+(defresource domain-dois-page
+  [host]
+  :available-media-types ["text/html"]
+  :handle-ok (fn [ctx]
+               (let [[subdomain true-domain etld] (util/get-main-domain host)
+                     domain (.toLowerCase (str true-domain "." etld))
+                     
+                     whitelisted (d/domain-whitelisted? domain)
+                     
+                     dois (d/get-available-doi-domain-timelines-for-domain host)
+                     
+                     render-context {:site-title site-title
+                                     :host host
+                                     :whitelisted whitelisted
+                                     :dois dois}]
+                 (render-file "templates/domain-dois-domain-list.html" render-context))))
+
+; Get list of domains for DOI-Domain timelines with this DOI.
+(defresource doi-domains-page
+  [doi]
+  :available-media-types ["text/html"]
+  :handle-ok (fn [ctx]
+               (let [domains (d/get-available-doi-domain-timelines-for-doi doi)
+                     whitelisted (filter d/domain-whitelisted? domains)
+                     
+                     render-context {:site-title site-title
+                                     :doi doi
+                                     :whitelisted whitelisted
+                                     :hosts whitelisted}]
+                 (render-file "templates/domain-dois-doi-list.html" render-context))))
+
+
 
 (defresource subdomains-redirect
   []
@@ -515,15 +589,25 @@
   (GET "/top-domains-members" [] (top-domains-members))
   (GET "/top-domains" [] (top-domains))
   (GET ["/events/types/:type-name" :type-name #".*"] [type-name] (event-types type-name))
+  
+  
   (context "/dois" []
     (GET "/" [] (dois-redirect))
-    (ANY "/*" {{doi :*} :params} (doi-page doi)))
+    ; Nesting contexts doesn't work with this type of parameter capture.
+    (ANY "/*/domains" {{doi :*} :params} (doi-page doi))
+    (ANY "/*" {{doi :*} :params} (doi-domains-page doi)))
   (context "/domains" []
     (GET "/" [] (domains-redirect))
-    (context ["/:domain" :domain #".+?"] [domain] (domain-page domain)))
+    (context ["/:domain" :domain #".+?"] [domain]
+      (GET "/" [] (domain-page domain))
+      (GET "/dois" [] (domain-dois-page domain))))
   (context "/subdomains" []
     (GET "/" [] (subdomains-redirect))
     (context ["/:subdomain" :subdomain #".+?"] [subdomain] (subdomain-page subdomain)))
+  
+  (ANY "/domain-dois/:domain/*" {{domain :domain doi :*} :params} (doi-domain-page doi domain))
+
+  
   
   (context "/api" []
     (POST "/push" [] (push))
@@ -532,7 +616,8 @@
       (context ["/:doi-prefix/:doi-suffix/facts" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-facts doi-prefix doi-suffix))
       (context ["/:doi-prefix/:doi-suffix/events" :doi-prefix #".+?" :doi-suffix #".+?"] [doi-prefix doi-suffix] (doi-events doi-prefix doi-suffix))))
   
-  (route/resources "/"))
+  (route/resources "/")
+  )
 
 (def app
   (-> app-routes

@@ -152,7 +152,7 @@ CREATE TABLE referrer_domain_timelines (
     source INT NOT NULL REFERENCES sources(id) ,
     type INT NOT NULL REFERENCES types(id),
 
-    -- JSON of date -> count
+    -- EDN of date -> count
     timeline MEDIUMBLOB
 );
 
@@ -171,7 +171,7 @@ CREATE TABLE referrer_subdomain_timelines (
     source INT NOT NULL REFERENCES sources(id) ,
     type INT NOT NULL REFERENCES types(id),
 
-    -- JSON of date -> count
+    -- EDN of date -> count
     timeline MEDIUMBLOB
 );
 
@@ -198,6 +198,21 @@ create table referrer_subdomain_events (
    inserted DATETIME NOT NULL
 );
 CREATE UNIQUE INDEX referrer_subdomain_events_unique on referrer_subdomain_events (subdomain, domain, source, type);
+
+CREATE TABLE doi_domain_referral_timelines (
+    id  INTEGER AUTO_INCREMENT PRIMARY KEY,
+    doi VARCHAR(700),
+    host VARCHAR(128),
+
+    source INT NOT NULL REFERENCES sources(id) ,
+    type INT NOT NULL REFERENCES types(id),
+
+    inserted DATETIME NOT NULL, 
+
+    -- EDN of date -> count
+    timeline MEDIUMBLOB
+) ENGINE = myisam;
+CREATE UNIQUE INDEX doi_domain_timelines ON doi_domain_referral_timelines (doi, host, type);
 
 CREATE TABLE top_domains (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,

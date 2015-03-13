@@ -1,0 +1,22 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>DOI: {{doi}}</h1>
+    
+            <p>The following domains reffered to this domain. Choose one to see more detail.</p>
+            <ul>
+            {% for host in hosts %}
+            <li><a href="/domain-dois/{{host}}/{{doi}}">{{host}}</a></li>
+            {% endfor %}
+            </ul>
+
+        </div>
+    </div>
+</div>  
+
+{% endblock %}
+
+

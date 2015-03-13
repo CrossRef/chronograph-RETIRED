@@ -1,0 +1,30 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Domain: {{host}}</h1>
+    
+            {% if not whitelisted %}
+            <div class="alert alert-danger" role="alert">
+              <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+              <span class="sr-only">Error:</span>
+              <strong>We're very sorry</strong> but you can't view stats for this domain. Please read <a href="/member-domains">why it has been redacted</a> and contact jwass@crossref.org if you want to put this domain on the whitelist.
+            </div>
+            {% else %}
+            <p>The following DOIs were referred from this domain. Choose one to see more detail.</p>
+            <ul>
+            {% for doi in dois %}
+            <li><a href="/domain-dois/{{host}}/{{doi}}">{{doi}}</a></li>
+            {% endfor %}
+            </ul>
+
+            {% endif %}
+        </div>
+    </div>
+</div>  
+
+{% endblock %}
+
+

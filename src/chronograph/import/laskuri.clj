@@ -169,6 +169,15 @@
       (prn "insert insert-month-top-domains chunk")
       (data/insert-month-top-domains chunk))))
 
+(defn insert-month-doi-domain-period-count
+  [base laskuri-name type-name source-name]
+  (let [lines (lazy-line-seq base laskuri-name parse-timeline)
+        chunks (partition-all transaction-chunk-size lines)]
+    ; chunks is sequence of [doi host timeline]
+    (doseq [chunk chunks]
+      (prn "insert doi domain timeline chunk")
+      (data/insert-doi-domain-timelines chunk type-name source-name))))
+
 (defn run-local-grouped
     "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."
     [base]    
@@ -202,4 +211,6 @@
     ; month-subdomain-periods-count - IGNORE
     
     ; month-top-domains
-    (insert-month-top-domains base "month-top-domains"))
+    (insert-month-top-domains base "month-top-domains")
+    
+    (insert-month-doi-domain-period-count base "month-doi-domain-periods-count" :total-referrals-domain :CrossRefLogs))

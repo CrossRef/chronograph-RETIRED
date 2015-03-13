@@ -4,9 +4,9 @@
 <div class="container">
 <div class="row">
   <div class="col-md-12">
-    <h1>Domain: {{domain}}</h1>
+    <h1>Referrals from {{domain}} to {{doi}}</h1>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
-    <p>See <a href="/domains/{{domain}}/dois">DOIs reffered from {{domain}} &raquo;</a>.</p>
+
     {% if not whitelisted %}
     <div class="alert alert-danger" role="alert">
       <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
@@ -39,6 +39,7 @@
     </tr>
     {% endfor %}
     </table>
+
     {% if first-date last-date %}
     <script>
     $(function(){

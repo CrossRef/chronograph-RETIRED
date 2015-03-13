@@ -183,6 +183,6 @@
 ; The semantics are different for milestones and facts. 
 ; For milestones the [:older :newer] applies to the event's date.
 ; For facts there is no event date, so it applies to the insertion date.
-(def conflict-methods #{:replace :newer :older nil})
+(def conflict-methods #{:replace :newer :older nil}) ; TODO: add
 
 (def storage-descriptions {:fact "facts" :milestone "milestones" :timeline "timelines" :event "events"})
