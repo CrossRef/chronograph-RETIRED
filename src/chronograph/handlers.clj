@@ -183,59 +183,13 @@
   :handle-ok (fn [ctx]
               (export-info (::info ctx))
               (::info ctx)))
-
-; A quick list manually hacked
-; select distinct(events.doi), length(event_timelines.timeline) as e  from event_timelines inner join events on events.doi = event_timelines.doi where events.event > "2013-01-01" order by e desc limit 50;
-(def interesting-dois [
-  "10.1787/20752288-table-tur"
-  "10.1038/cddis.2009.22"
-  "10.1038/471305c"
-  "10.1787/20752288-table-fra"
-  "10.1016/0304-405X"
-  "10.1038/ni.1863"
-  "10.3322/caac.20006"
-  "10.1093/ndt"
-  "10.1007/b96702"
-  "10.1016/j.nuclphysa.2003.11.001"
-  "10.1038/nprot.2007.30"
-  "10.1787/20758510-table6"
-  "10.1038/nbt1037"
-  "10.1007/s12028-012-9695-z"
-  "10.1038/nature05913"
-  "10.1385/1-59259-384-4:3"
-  "10.1787/20743866-table4"
-  "10.1038/nn775"
-  "10.1038/nature11400"
-  "10.1016/j.annemergmed.2006.03.031"
-  "10.1016/j.autrev.2007.08.003"
-  "10.1038/21987"
-  "10.1038/nature09270"
-  "10.1056/NEJMoa0802743"
-  "10.1016/j.fluid.2007.07.023"
-  "10.1021/je049540s"
-  "10.1021/je050316s"
-  "10.1038/nprot.2007.418"
-  "10.1016/j.addbeh.2009.03.028"
-  "10.1016/j.livsci.2011.03.006"
-  "10.3201/eid1805.111916"
-  "10.1016/S0140-6736"
-  "10.1002/hep.25578"
-  "10.1007/s10071-010-0371-4"
-  "10.1007/s13253-010-0033-7"
-  "10.1016/j.cell.2007.06.014"
-  "10.1371/journal.pone.0038724"
-  "10.3382/ps.2009-00360"
-  "10.1080/09603100410001673676"
-  "10.1007/978-90-481-8622-8_8"          
-])
  
 (defresource home
   []
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
                ; Homepage template can be specified by config.
-   (render-file homepage-template {:site-title site-title
-                                        :interesting-dois interesting-dois})))
+   (render-file homepage-template {:site-title site-title})))
 
 (defresource member-domains
   []
@@ -306,17 +260,12 @@
                      first-date (when all-dates-sorted (first all-dates-sorted))
                      last-date (when all-dates-sorted (last all-dates-sorted))
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
-                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
-                                                 interpolated-timelines)
 
-                     ;; add 1 day of padding either side for charting
-                     first-date-pad (when first-date (t/minus first-date (t/days 1)))
-                     last-date-pad (when last-date (t/plus last-date (t/days 1)))
-                     
-                     date-format (condp = (get-in ctx [:representation :media-type])
+                      date-format (condp = (get-in ctx [:representation :media-type])
                                    "text/html" :seconds
                                    "application/json" :iso8601)
+                     
+                     
                      
                      response {:first-date first-date
                                :last-date last-date
@@ -324,7 +273,7 @@
                                :events (map types/export-type-info events)
                                :milestones (map types/export-type-info milestones)
                                :facts (map types/export-type-info facts)
-                               :timelines (map types/export-type-info timelines-with-padding)}
+                               :timelines (map types/export-type-info interpolated-timelines)}
                      
                      ; Dates in response need converting. This is sent back as JSON.
                      ; Dates in render-context can be 'real' dates as they're consumed by the template.
@@ -335,8 +284,8 @@
                      response-timeline-dates-converted (assoc response :timelines (convert-all-dates (:timelines response) date-format))
                      
                      render-context {:site-title site-title
-                                     :first-date-pad first-date-pad
-                                     :last-date-pad last-date-pad
+                                     :first-date first-date
+                                     :last-date last-date
                                      :response response-timeline-dates-converted}]
                                                     
                   (condp = (get-in ctx [:representation :media-type])
@@ -374,28 +323,24 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
-                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
-                                                 interpolated-timelines)
-                    
-                     ;; add 1 day of padding either side for charting
-                     first-date-pad (when first-date (t/minus first-date (t/days 1)))
-                     last-date-pad (when last-date (t/plus last-date (t/days 1)))
                      
+                     date-format (condp = (get-in ctx [:representation :media-type])
+                     "text/html" :seconds
+                     "application/json" :iso8601)
+
+                     timelines-dates-converted (convert-all-dates interpolated-timelines date-format)
+
                      subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
                      render-context {:site-title site-title
                                      :first-date first-date
-                                     :last-date last-date
-                                     :first-date-pad first-date-pad
-                                     :last-date-pad last-date-pad
+                                     :last-date last-date                                     
                                      :domain domain
                                      :events events
                                      :facts facts
-                                     :timelines timelines-with-padding
+                                     :timelines timelines-dates-converted
                                      :subdomains subdomains
-                                     :whitelisted whitelisted
-                                     }]
+                                     :whitelisted whitelisted}]
                (render-file "templates/domain.html" render-context))))
 
 
@@ -416,35 +361,21 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/months 1))) timelines))
-                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
-                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
-                                                 interpolated-timelines)
-                    
-                     ;; add 1 day of padding either side for charting
-                     first-date-pad (when first-date (t/minus first-date (t/days 1)))
-                     last-date-pad (when last-date (t/plus last-date (t/days 1)))
-
                      date-format (condp = (get-in ctx [:representation :media-type])
                                    "text/html" :seconds
                                    "application/json" :iso8601)
                      
-                     timelines-dates-converted (convert-all-dates timelines-with-padding date-format)
+                     timelines-dates-converted (convert-all-dates interpolated-timelines date-format)
                      
                      render-context {:site-title site-title
                                      :first-date first-date
                                      :last-date last-date
-                                     :first-date-pad first-date-pad
-                                     :last-date-pad last-date-pad
                                      :domain domain
                                      :doi doi
                                      :timelines timelines-dates-converted
                                      :whitelisted whitelisted}]
                                 
-                                (prn "timelines-dates-converted" timelines-dates-converted)
-                                
                (render-file "templates/doi-domain.html" render-context))))
-
-
 
 
 ; Get list of DOIs for DOI-Domain timelines with this domain.
@@ -528,28 +459,27 @@
                      last-date (last all-dates-sorted)
                      
                      interpolated-timelines (when (and first-date last-date) (map #(assoc % :timeline (d/interpolate-timeline (:timeline %) first-date last-date (t/days 1))) timelines))
-                     timelines-with-padding (map #(assoc % :min (when (not-empty (:timeline %)) (apply min (map second (:timeline %))))
-                                                          :max (when (not-empty (:timeline %)) (apply max (map second (:timeline %)))))
-                                                 interpolated-timelines)
-                    
-                     ;; add 1 day of padding either side for charting
-                     first-date-pad (when first-date (t/minus first-date (t/days 1)))
-                     last-date-pad (when last-date (t/plus last-date (t/days 1)))
+                     
+             
+                    date-format (condp = (get-in ctx [:representation :media-type])
+                      "text/html" :seconds
+                      "application/json" :iso8601)
+
+                    timelines-dates-converted (convert-all-dates interpolated-timelines date-format)
                      
                      subdomains (reverse (sort-by :count (d/get-subdomains-for-domain true-domain true)))
                      
                      render-context {:site-title site-title
                                      :first-date first-date
                                      :last-date last-date
-                                     :first-date-pad first-date-pad
-                                     :last-date-pad last-date-pad
                                      :subdomain host
                                      :domain domain
                                      :events events
                                      :facts facts
-                                     :timelines timelines-with-padding
+                                     :timelines timelines-dates-converted
                                      :subdomains subdomains
                                      :whitelisted whitelisted}]
+                 
                (render-file "templates/subdomain.html" render-context))))
 
 (defresource event-types

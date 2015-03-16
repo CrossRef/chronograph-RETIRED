@@ -1,0 +1,32 @@
+Introduing the DOI Chronograph
+
+http://chronograph.labs.crossref.org
+
+At CrossRef we mint DOIs for publications and send them out into the world, but we like to hear how they're getting on out there. With our DOI Event Tracking / ALM pilot project we're collecting information about how DOIs are mentioned on the web to try and build a picture about new methods of citation.
+
+When you click on a DOI, you hit the DOI system and one of our servers redirects you to the correct landing page for the article. This is called a DOI resolution. We store these events in a large log file (around 100 million per month). Like any web site or service, we also know the address of the page you were viewing when you clicked the link, if your browser sends the information (it usually does). 
+
+As part of the preparation for collaborating with Wikipedia, we looked at our resolution logs and discovered that wikipedia was, over a two year period from 2012, the eighth largest referrer of DOIs. This bit of one-off data analysis gave us enough of a prod to kickstart the wikipedia collaboration.
+
+At the ALM Workshop 2014 in San Francisco we talked to some wikipedians and bibliometricians and realised that we were sitting on a really interesting data-set. At the hackathon we started work on a service to gather information about DOIs and, a month later, we're ready to unveil the DOI Chronograph. 
+
+You can see:
+
+Daily resolutions from top level domains, e.g. wikipedia.org:
+http://chronograph.labs.crossref.org/domains/wikipedia.org
+
+Daily resolutions from specific subdomains, e.g. en.wikipedia.org:
+http://chronograph.labs.crossref.org/subdomains/en.wikipedia.org
+
+Daily resolutions per DOI:
+http://chronograph.labs.crossref.org/dois/10.1787/20752288-table-fra
+
+And, the chart that kicked this all off: DOI referring domains league tables:
+http://chronograph.labs.crossref.org/top-domains
+
+Visit the Chronograph and give it a try chronograph.labs.crossref.org on your favourite DOI (everyone has one). 
+
+It's a labs project so the usual weasel words apply. Specifically, we currently have the logs for 2012 to 2014 (we're working at digging out the rest), and the referral information for 43 million DOIs (out of 71 million). That number will be higher by the time you read this.
+
+We can't release all the data. DOIs play such a central role in scholarly publishing that the DOI traffic for our members could be commercially sensitive. So if you try a domain and it doesn't work, that may be why. If you've noticed a domain that you don't think belongs to one of our members, please email jwass@crossref.org .
+

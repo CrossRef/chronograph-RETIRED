@@ -45,10 +45,8 @@
         var time = new Rickshaw.Fixtures.Time();
     {% for timeline in timelines %}
         var data_timeline_{{forloop.counter}} = [
-    {"x": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0},
-    {% for dt, count in timeline.timeline %}{"x": new Date("{{ dt|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}} },
+    {% for dt, count in timeline.timeline %}{"x": {{dt}}, "y": {{count}} },
     {%endfor %}
-    {"x": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0}
     ];
 
     var graph = new Rickshaw.Graph( {
@@ -56,8 +54,7 @@
         width: 1140,
         height: 200,
         title: "{{timeline.name}}",
-        interpolation: 'step-after',
-        renderer: 'area',
+        renderer: 'bar',
         stroke: true,
         preserve: true,
         series: [{

@@ -556,12 +556,14 @@
 
 (defn time-range
   "Return a lazy sequence of DateTimes from start to end, incremented
-  by 'step' units of time."
+  by 'step' units of time, always inclusive of bounds."
   [start end step]
-  (let [inf-range (time-period/periodic-seq start step)
-        below-end? (fn [tt] (t/within? (t/interval start end)
-                                         tt))]
-    (take-while below-end? inf-range)))
+  (if (= start end)
+    [start]
+    (let [inf-range (time-period/periodic-seq start step)
+          below-end? (fn [tt] (t/within? (t/interval start end)
+                                           tt))]
+      (concat (take-while below-end? inf-range) [end]))))
   
 (defn interpolate-timeline
   [values first-date last-date step]

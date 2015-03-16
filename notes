@@ -1,0 +1,66 @@
+Interesting things
+
+Well, the DOI Chronograph has been running for a few weeks. Since launch we've piled a load more information into it and it now contains:
+
+- date of publication
+- date that the publisher first deposited metadata with us
+- if there are CrossMark updates for a DOI, the dates that those updates were published
+- the date that it was first possible to resolve a DOI (from mid-January onward). We have a robot checking new publications as they are published.
+- where we have logs, the date on which the first successful resolution was made
+- if the DOI was cited from Wikipedia, the date on which it was added (from mid-January onward)
+
+We learned some pretty interesting things along the way
+
+GitHub changed domains
+
+Ian Mulvaney on twitter asked
+
+<blockquote class="twitter-tweet" lang="en"><p><a href="https://twitter.com/joewass">@joewass</a> what’s up with github? <a href="http://t.co/NciIGBaX1S">http://t.co/NciIGBaX1S</a></p>&mdash; Ian Mulvany (@IanMulvany) <a href="https://twitter.com/IanMulvany/status/555051365517770752">January 13, 2015</a></blockquote>
+<script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+So I had a look.
+
+
+
+
+Github redirect
+Google pages
+Youtube
+FTP http://chronograph.labs.crossref.org/dois/10.2210/pdb4crr/pdb
+Wikipedia traffic
+Bielefeld
+dark traffic order of magnitude
+
+
+Some DOIs need cookies enabled http://chronograph.labs.crossref.org/dois/10.7566/jpsj.84.012001
+
+
+
+
+## See also
+
+http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+http://www.percona.com/blog/2011/07/09/how-to-change-innodb_log_file_size-safely/
+http://www.percona.com/blog/2008/11/21/how-to-calculate-a-good-innodb-log-file-size/
+http://dev.mysql.com/doc/refman/5.5/en/innodb-parameters.html#sysvar_innodb_log_buffer_size
+
+
+http://lists.mysql.com/mysql/162683
+
+
+new
+
+[mysqld]
+key_buffer              = 10G
+myisam_max_sort_file_size=100G
+
+query_cache_limit       = 1G
+query_cache_size        = 16M
+sort_buffer_size = 1G
+
+prev
+
+key_buffer              = 16M
+
+query_cache_limit       = 1M
+query_cache_size        = 16M

@@ -1,0 +1,9 @@
+- first date of resolution failure
+- first date of resolution success
+- all timezoned dates
+- escape type names for JS
+- store domain root for domain table, lookup subdomains from domains, vice versa
+- TODO try try again for API requests!
+- handle no issue date?
+- filter out own IP
+

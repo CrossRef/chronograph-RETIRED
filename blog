@@ -1,0 +1,34 @@
+Presenting DOI Chronograph
+
+http://chronograph.labs.crossref.org
+
+When you click on a CrossRef DOI, you end up at the article landing page. Between the click and the landing page, you hit the DOI system which directs you to the right place. This is called a 'DOI resolution'. We keep a log of every time that happens (to the tune of around 100 million resolutions per month). From this information we can get various insights about the way people use DOIs in the wild. 
+
+We're interested in ALMs (alternative metrics) for DOIs. We are collaborating with PLOS on the DOI Event Tracking project (http://det.labs.crossref.org). At the [http://articlemetrics.github.io/workshop_2014/] ALM 2014 Workshop we met with various poeple who were interested in this data so we've created the DOI Chronograph
+
+
+
+
+https://docs.google.com/a/crossref.org/document/d/1am_ez92Yisx5nQad_2hV1Au1YbOICSGlSsaK5qH9jS4/edit#heading=h.ixi3wdyh6k8i
+
+
+
+
+As scholarly content is discussed and cited outside traditional scholarship, it’s becoming more important to track this activity. CrossRef’s DOI Event Tracking pilot aims to try and capture some of this. We are trying to track occasions on which DOIs are used ‘in the wild’, on the web and social media. We’re not interested in creating more metrics, we want to collect raw events.
+
+Various organisations have put effort into trying to produce something broader than traditional metrics (such as Impact Factor) which don’t take into account online, non-traditional scholarship. Metrics are important to authors, because they inform them of how their articles are being cited in literature and can have funding implications.
+
+Alternative metrics (ALMs) help authors to discover how and where their articles are being discussed, allowing them to join the discussion. They can also help the author describe the broader impact of their work to their institution. ALMs are useful to publishers too, as they gather business information about how the journals and articles the publish are used.
+
+Most of the discussion has therefore centred around how authors and their publishers. But ALMs aren’t only for authors.
+
+Most of the places we think to look for ALMs are either monolithic services that allow lots of users to publish their content (twitter), or small individual services (individual blogs). The former category usually don’t really care about DOIs, and the latter category know exactly what they’re citing. But there’s a third category, large websites who do care about DOIs.
+Resolution Logs
+
+One of the datasets we have at CrossRef is resolution logs. We know when someone (or something) follows a CrossRef DOI to read an article (because we help them get there). We typically serve up 10 million [TODO] DOIs per month. Like any other website or web service, we know where the user came from. As part of our investigation into how Wikipedia uses DOIs we looked at the logs and realised that in 2012 Wikipedia was the 8th largest known referrer. This means that not only do they cite a lot of DOIs, but people click on them too. This data was useful to us as, it meant we realised that Wikipedia unexpectedly important as a referrer of DOIs, and to Wikipedia for exactly the same reason. As a result we have sponsored Wikipedian to make links and information sharing even better.
+
+One thing our data also shows is that there’s a large ‘black hole’ of unknown referrers that we can’t identify for one reason or another. There are many reasons for this. First is that the visitor is a robot, and referrer information is meaningless. Second, a user may have set their privacy settings to prevent referrers from being shared. The third reason is the use of HTTPS. The policy for browsers as of HTTP/1.1   means that when going from an HTTPS site to HTTP (and DOI links are usually HTTP), the referrer is not supplied unless websites specifically enable it. 
+Enter Wikipedia
+
+At the ALM Workshop 2014 we discussed this with Dario Taraborelli, Senior Research Analyst, Strategy, at the Wikimedia Foundation. He noticed that a drop in referrals from Wikipedia co-incided with Wikipedia pushing HTTPS over HTTP [TODO VALIDATE WITH ACTUAL REAL DATA]. He put forward a proposal to include the relevant headers. That proposal has been approved and we should start to see changes. I’ll report back as soon as there’s new data.
+DOI Chronograph
