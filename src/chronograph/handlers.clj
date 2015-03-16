@@ -403,8 +403,7 @@
   [doi host]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-
-                              (let [[subdomain true-domain etld] (util/get-main-domain host)
+                (let [[subdomain true-domain etld] (util/get-main-domain host)
                      domain (.toLowerCase (str true-domain "." etld))
                      
                      whitelisted (d/domain-whitelisted? domain)
@@ -424,7 +423,13 @@
                      ;; add 1 day of padding either side for charting
                      first-date-pad (when first-date (t/minus first-date (t/days 1)))
                      last-date-pad (when last-date (t/plus last-date (t/days 1)))
-                                          
+
+                     date-format (condp = (get-in ctx [:representation :media-type])
+                                   "text/html" :seconds
+                                   "application/json" :iso8601)
+                     
+                     timelines-dates-converted (convert-all-dates timelines-with-padding date-format)
+                     
                      render-context {:site-title site-title
                                      :first-date first-date
                                      :last-date last-date
@@ -432,8 +437,10 @@
                                      :last-date-pad last-date-pad
                                      :domain domain
                                      :doi doi
-                                     :timelines timelines-with-padding
+                                     :timelines timelines-dates-converted
                                      :whitelisted whitelisted}]
+                                
+                                (prn "timelines-dates-converted" timelines-dates-converted)
                                 
                (render-file "templates/doi-domain.html" render-context))))
 
@@ -445,17 +452,26 @@
   [host]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [[subdomain true-domain etld] (util/get-main-domain host)
+               (let [page-size 50
+                     offset (try (Integer/parseInt (-> ctx :request :params :offset)) (catch java.lang.NumberFormatException _ 0))
+                     limit (+ offset page-size)
+
+                     [subdomain true-domain etld] (util/get-main-domain host)
                      domain (.toLowerCase (str true-domain "." etld))
                      
                      whitelisted (d/domain-whitelisted? domain)
                      
-                     dois (d/get-available-doi-domain-timelines-for-domain host)
+                     dois (d/get-available-doi-domain-timelines-for-domain host offset limit)
+                     
+                     prev-offset (when (> offset 0) (max 0 (- offset page-size)))
+                     next-offset (when (> (count dois) 0) (+ offset page-size))
                      
                      render-context {:site-title site-title
                                      :host host
                                      :whitelisted whitelisted
-                                     :dois dois}]
+                                     :dois dois
+                                     :next-offset next-offset
+                                     :prev-offset prev-offset}]
                  (render-file "templates/domain-dois-domain-list.html" render-context))))
 
 ; Get list of domains for DOI-Domain timelines with this DOI.
@@ -463,13 +479,23 @@
   [doi]
   :available-media-types ["text/html"]
   :handle-ok (fn [ctx]
-               (let [domains (d/get-available-doi-domain-timelines-for-doi doi)
+               (let [page-size 50
+                     offset (try (Integer/parseInt (-> ctx :request :params :offset)) (catch java.lang.NumberFormatException _ 0))
+                     limit (+ offset page-size)
+
+                     domains (d/get-available-doi-domain-timelines-for-doi doi offset limit)
                      whitelisted (filter d/domain-whitelisted? domains)
+
+                     prev-offset (when (> offset 0) (max 0 (- offset page-size)))
+                     next-offset (when (> (count domains) 0) (+ offset page-size))
                      
                      render-context {:site-title site-title
                                      :doi doi
                                      :whitelisted whitelisted
-                                     :hosts whitelisted}]
+                                     :hosts whitelisted
+                                     :next-offset next-offset
+                                     :prev-offset prev-offset
+                                     }]
                  (render-file "templates/domain-dois-doi-list.html" render-context))))
 
 
@@ -594,8 +620,8 @@
   (context "/dois" []
     (GET "/" [] (dois-redirect))
     ; Nesting contexts doesn't work with this type of parameter capture.
-    (ANY "/*/domains" {{doi :*} :params} (doi-page doi))
-    (ANY "/*" {{doi :*} :params} (doi-domains-page doi)))
+    (ANY "/*/domains" {{doi :*} :params} (doi-domains-page doi))
+    (ANY "/*" {{doi :*} :params} (doi-page doi)))
   (context "/domains" []
     (GET "/" [] (domains-redirect))
     (context ["/:domain" :domain #".+?"] [domain]

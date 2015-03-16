@@ -6,7 +6,8 @@
     {% if extra-info.title %}<h1>{{extra-info.title}}</h1>{% endif %}
     <h2><a href="http://dx.doi.org/{{response.doi}}">{{response.doi}}</a></h2>
     <p class="lead">Events from {{response.first-date|date:"d MMMM YYYY"}} to {{response.last-date|date:"d MMMM YYYY"}}</p>
-    
+    <p>See <a href="/dois/{{response.doi}}/domains">Domains that refer to {{response.doi}} &raquo;</a>.</p>
+
 {% if response.facts|not-empty  %}
     <table class="table table-striped event-table">
     <thead>

@@ -4,7 +4,7 @@
 <div class="container">
 <div class="row">
   <div class="col-md-12">
-    <h1>Referrals from {{domain}} to {{doi}}</h1>
+    <h1>Referrals from <a href="/domains/{{domain}}">{{domain}}</a> to <a href="/dois/{{doi}}">{{doi}}</a></h1>
     <p class="lead">Events from {{first-date|date:"d MMMM YYYY"}} to {{last-date|date:"d MMMM YYYY"}}</p>
 
     {% if not whitelisted %}
@@ -47,7 +47,7 @@
     {% for timeline in timelines %}
         var data_timeline_{{forloop.counter}} = [
     {"x": new Date("{{ first-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0},
-    {% for dt, count in timeline.timeline %}{"x": new Date("{{ dt|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": {{count}} },
+    {% for dt, count in timeline.timeline %}{"x": {{dt}}, "y": {{count}} },
     {%endfor %}
     {"x": new Date("{{ last-date-pad|date:"YYYY-MM-dd"}}").getTime() / 1000, "y": 0}
     ];

@@ -213,6 +213,7 @@ CREATE TABLE doi_domain_referral_timelines (
     timeline MEDIUMBLOB
 ) ENGINE = myisam;
 CREATE UNIQUE INDEX doi_domain_timelines ON doi_domain_referral_timelines (doi, host, type);
+CREATE INDEX doi_domain_timelines_host ON  doi_domain_referral_timelines (host);
 
 CREATE TABLE top_domains (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,

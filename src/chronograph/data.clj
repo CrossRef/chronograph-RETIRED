@@ -522,20 +522,24 @@
 
 (defn get-available-doi-domain-timelines-for-doi
   "For a DOI return domains for all timelines"
-  [doi]
+  [doi  offset limit]
   (map :host
     (k/select
       d/doi-domain-timelines
       (k/where {:doi doi})
+      (k/offset offset)
+      (k/limit limit)
       (k/fields [:host]))))
 
 (defn get-available-doi-domain-timelines-for-domain
   "For a domain return domains for all timelines"
-  [host]
+  [host offset limit]
   (map :doi
     (k/select
       d/doi-domain-timelines
       (k/where {:host host})
+      (k/offset offset)
+      (k/limit limit)
       (k/fields [:doi]))))
 
 (defn get-last-run-date
