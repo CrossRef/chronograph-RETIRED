@@ -25,6 +25,22 @@
 (def type-ids-by-name (atom {}))
 (def source-ids-by-name (atom {}))
 
+(defn partition-timeline
+  "Partition a timeline into months return {date -> timeline-partition}."
+  [timeline]
+  (let [; Chop timeline into month chunks and insert each (overwriting).
+        partitioned-by-month (group-by (fn [[date value]]
+                                         (t/date-time (t/year date) (t/month date))) timeline)
+        
+        ; Convert each timeline form a seq of vectors into a map
+        timelines (into {} (map (fn [[date timeline]] [date (into {} timeline)]) partitioned-by-month))]
+  timelines))
+
+(defn unpartition-timelines
+  "Join timeline partitions back into a single one."
+  [timelines]
+  (apply merge timelines))
+
 (defn insert-member-domains [member-id domains]
   (kdb/transaction
     (doseq [domain domains]
@@ -390,15 +406,9 @@
   [doi host type-name source-name data]
   (when (and (< (.length host) 128) (< (.length host) 128))      
     (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
-          
-          ; Chop timeline into month chunks and insert each (overwriting).
-          partitioned-by-month (group-by (fn [[date value]]
-                                           (t/date-time (t/year date) (t/month date))) data)
-          
-          ; Convert each timeline form a seq of vectors into a map
-          timelines (into {} (map (fn [[date timeline]] [date (into {} timeline)]) partitioned-by-month))]
+          partitioned-timelines (partition-timeline data)]
         
-      (doseq [[year-month timeline] timelines]   
+      (doseq [[year-month timeline] partitioned-timelines]   
         (k/exec-raw ["insert into doi_domain_referral_month_timelines (doi, host, type, month, source, inserted, timeline)
                      values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)"
                      [doi host type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
@@ -512,7 +522,8 @@
           merged-by-type (map (fn [[type-id timelines]]
                                 ; Use the first item as a template and merge the respective timeline fragments into it.
                                 (assoc (first timelines) :timeline
-                                  (apply merge (map :timeline timelines)))) by-type)]
+                                  (unpartition-timelines (map :timeline timelines))
+                                  )) by-type)]
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
          merged-by-type))))
@@ -522,22 +533,26 @@
   [doi  offset limit]
   (map :host
     (k/select
-      d/doi-domain-timelines
+      d/doi-domain-month-timelines-base
+      (k/modifier "distinct")
       (k/where {:doi doi})
       (k/offset offset)
       (k/limit limit)
-      (k/fields [:host]))))
+      (k/fields :host))))
 
 (defn get-available-doi-domain-timelines-for-domain
   "For a domain return domains for all timelines"
   [host offset limit]
   (map :doi
     (k/select
-      d/doi-domain-timelines
+      d/doi-domain-month-timelines-base
+      (k/modifier "distinct")
+      (k/fields :doi)
       (k/where {:host host})
       (k/offset offset)
       (k/limit limit)
-      (k/fields [:doi]))))
+      
+      )))
 
 (defn get-last-run-date
   "Last date that the DOI import was run."

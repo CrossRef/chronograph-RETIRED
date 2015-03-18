@@ -217,6 +217,13 @@
         (assoc input
           :timeline (when-let [d (:timeline input)] (coerce-timeline-out (edn/read (java.io.PushbackReader. (reader d))))))))))
 
+; Because Korma doesn't allow distinct on a subset of fields, we need to create a new entity.
+(k/defentity doi-domain-month-timelines-base
+  (k/table "doi_domain_referral_month_timelines")
+  (k/pk :id)
+  (k/entity-fields
+    :doi
+    :host))
 
 
 (k/defentity referrer-domain-events
