@@ -388,20 +388,21 @@
 (defn insert-doi-domain-timeline
   "Insert parts of a DOI / Domain event timeline. Overwrite at month level."
   [doi host type-name source-name data]
-  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+  (when (and (< (.length host) 128) (< (.length host) 128))      
+    (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+          
+          ; Chop timeline into month chunks and insert each (overwriting).
+          partitioned-by-month (group-by (fn [[date value]]
+                                           (t/date-time (t/year date) (t/month date))) data)
+          
+          ; Convert each timeline form a seq of vectors into a map
+          timelines (into {} (map (fn [[date timeline]] [date (into {} timeline)]) partitioned-by-month))]
         
-        ; Chop timeline into month chunks and insert each (overwriting).
-        partitioned-by-month (group-by (fn [[date value]]
-                                         (t/date-time (t/year date) (t/month date))) data)
-        
-        ; Convert each timeline form a seq of vectors into a map
-        timelines (into {} (map (fn [[date timeline]] [date (into {} timeline)]) partitioned-by-month))]
-      
-    (doseq [[year-month timeline] timelines]   
-      (k/exec-raw ["insert into doi_domain_referral_month_timelines (doi, host, type, month, source, inserted, timeline)
-                   values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)"
-                   [doi host type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
-                    (pr-str (d/coerce-timeline-in timeline))]]))))
+      (doseq [[year-month timeline] timelines]   
+        (k/exec-raw ["insert into doi_domain_referral_month_timelines (doi, host, type, month, source, inserted, timeline)
+                     values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)"
+                     [doi host type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
+                      (pr-str (d/coerce-timeline-in timeline))]])))))
 
 (defn insert-doi-domain-timelines
   "Insert chunk of doi-domain timelines in a transaction."
