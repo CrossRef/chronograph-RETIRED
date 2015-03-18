@@ -386,35 +386,22 @@
       (insert-domain-timeline domain domain type-name source-name timeline #(max %1 %2)))))
 
 (defn insert-doi-domain-timeline
-  "Insert parts of a DOI / Domain event timeline. This will merge the existing data."
-  [doi host type-name source-name data merge-fn]
-
-  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
-    (when (and (< (.length doi) 700) (< (.length host) 128))
-      (let [initial-row (first (k/select d/doi-domain-timelines
-                                         (k/where {:doi doi
-                                                    :host host
-                                                    :type type-id
-                                                    :source source-id})))
-            initial-row-data (or (:timeline initial-row) {})
-            merged-data (merge-with merge-fn initial-row-data data)]
+  "Insert parts of a DOI / Domain event timeline. Overwrite at month level."
+  [doi host type-name source-name data]
+  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
         
-        (if initial-row
-          (k/update d/doi-domain-timelines
-                    (k/where {:doi doi
-                              :host host
-                              :type type-id
-                              :source source-id})
-                    (k/set-fields {:timeline merged-data
-                                   :inserted (coerce/to-sql-time (t/now))}))
-          
-          (k/insert d/doi-domain-timelines
-                    (k/values {:doi doi
-                               :host host
-                               :type type-id
-                               :source source-id
-                               :inserted (coerce/to-sql-time (t/now))
-                               :timeline merged-data})))))))
+        ; Chop timeline into month chunks and insert each (overwriting).
+        partitioned-by-month (group-by (fn [[date value]]
+                                         (t/date-time (t/year date) (t/month date))) data)
+        
+        ; Convert each timeline form a seq of vectors into a map
+        timelines (into {} (map (fn [[date timeline]] [date (into {} timeline)]) partitioned-by-month))]
+      
+    (doseq [[year-month timeline] timelines]   
+      (k/exec-raw ["insert into doi_domain_referral_month_timelines (doi, host, type, month, source, inserted, timeline)
+                   values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)"
+                   [doi host type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
+                    (pr-str (d/coerce-timeline-in timeline))]]))))
 
 (defn insert-doi-domain-timelines
   "Insert chunk of doi-domain timelines in a transaction."
@@ -422,7 +409,7 @@
   (kdb/transaction
     (prn "chunk insert-doi-domain-timelines")
     (doseq [[[doi host] timeline] chunk]
-      (insert-doi-domain-timeline doi host type-name source-name timeline #(max %1 %2)))))
+      (insert-doi-domain-timeline doi host type-name source-name timeline))))
 
 (defn insert-subdomain-timeline
   "Insert parts of a Referrer Subdomain's event timeline. This will merge the existing data.
@@ -512,13 +499,22 @@
 (defn get-doi-domain-timelines
   "Get all timelines for a DOI / domain referral"
   [doi domain]
+  ; Get timelines, more than one per month per type, as they're partitioned by month.
+  ; (Really there's only one type).
   (when-let [timelines (k/select
-    d/doi-domain-timelines
-    (k/where {:host domain :doi doi})
-    (k/with d/types))]
+                          d/doi-domain-month-timelines
+                          (k/where {:host domain :doi doi})
+                          (k/with d/types))]
+    
+    ; Group into month partitions per-type.
+    (let [by-type (group-by :type timelines)
+          merged-by-type (map (fn [[type-id timelines]]
+                                ; Use the first item as a template and merge the respective timeline fragments into it.
+                                (assoc (first timelines) :timeline
+                                  (apply merge (map :timeline timelines)))) by-type)]
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
-         timelines)))
+         merged-by-type))))
 
 (defn get-available-doi-domain-timelines-for-doi
   "For a DOI return domains for all timelines"

@@ -199,10 +199,13 @@ create table referrer_subdomain_events (
 );
 CREATE UNIQUE INDEX referrer_subdomain_events_unique on referrer_subdomain_events (subdomain, domain, source, type);
 
-CREATE TABLE doi_domain_referral_timelines (
+CREATE TABLE doi_domain_referral_month_timelines (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
     doi VARCHAR(700),
     host VARCHAR(128),
+
+    -- Partitioned by month. This is so months can be replaced wholesale without being merged.
+    month DATE,
 
     source INT NOT NULL REFERENCES sources(id) ,
     type INT NOT NULL REFERENCES types(id),
@@ -212,8 +215,8 @@ CREATE TABLE doi_domain_referral_timelines (
     -- EDN of date -> count
     timeline MEDIUMBLOB
 ) ENGINE = myisam;
-CREATE UNIQUE INDEX doi_domain_timelines ON doi_domain_referral_timelines (doi, host, type);
-CREATE INDEX doi_domain_timelines_host ON  doi_domain_referral_timelines (host);
+CREATE UNIQUE INDEX doi_domain_timelines_month ON doi_domain_referral_month_timelines (doi, host, type, month);
+CREATE INDEX doi_domain_timelines_host_month ON  doi_domain_referral_month_timelines (host);
 
 CREATE TABLE top_domains (
     id  INTEGER AUTO_INCREMENT PRIMARY KEY,
