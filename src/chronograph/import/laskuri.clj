@@ -86,8 +86,14 @@
         ; filter out self, directory, crc files etc
         part-files (filter #(re-matches #"^part-\d*$" (.getName %)) files)
         
+        cnt (atom 0)
+        total (count part-files)
+        
         ; Lazy seq of the files.
-        seqs (map #(line-seq (clojure.java.io/reader %)) part-files)
+        seqs (map (fn [f]
+                    (swap! cnt inc)
+                    (prn (str "Part file " @cnt " / " total))
+                    (line-seq (clojure.java.io/reader f))) part-files)
         
         ; Lazy seq of all lines.
         whole (apply concat seqs)
