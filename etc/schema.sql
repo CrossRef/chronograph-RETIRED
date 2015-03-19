@@ -42,12 +42,15 @@ CREATE TABLE timeline_shard_template (
     source INT NOT NULL REFERENCES sources(id) ,
     type INT NOT NULL REFERENCES types(id),
 
+    -- Partitioned by month. This is so months can be replaced wholesale without being merged.
+    month DATE,
+
     -- JSON of date -> count
     timeline MEDIUMBLOB
 ) ENGINE = myisam;
 
 -- type isn't indexed because it's the basis of the shard table identity, so is always known.
-CREATE UNIQUE INDEX event_timelines_doi_source_type_isam ON timeline_shard_template (doi);
+CREATE UNIQUE INDEX doi_month ON timeline_shard_template (doi, month);
 
 -- This is a template for sharded events tables. Will be copied to create new shards.
 CREATE TABLE event_shard_template (
@@ -145,18 +148,23 @@ CREATE TABLE referrer_domain_timelines (
     domain VARCHAR(128) NOT NULL,
     host VARCHAR(128) NOT NULL,
 
+    -- Partitioned by month. This is so months can be replaced wholesale without being merged.
+    month DATE,
 
     -- datetime this was inserted
     inserted DATETIME NOT NULL, 
 
+    -- source is not the basis of identity or index
     source INT NOT NULL REFERENCES sources(id) ,
+
+    -- indexed
     type INT NOT NULL REFERENCES types(id),
 
     -- EDN of date -> count
     timeline MEDIUMBLOB
 );
 
-CREATE INDEX domain_timelines_domain_source_type ON referrer_domain_timelines (domain, host, source, type);
+CREATE INDEX domain_timelines_domain_source_type ON referrer_domain_timelines (domain, host, type, month);
 
 -- Storage of entire timeline per referrer subdomain.
 CREATE TABLE referrer_subdomain_timelines (
@@ -164,18 +172,23 @@ CREATE TABLE referrer_subdomain_timelines (
     domain VARCHAR(128) NOT NULL,
     host VARCHAR(128) NOT NULL,
 
+    -- Partitioned by month. This is so months can be replaced wholesale without being merged.
+    month DATE,
 
     -- datetime this was inserted
     inserted DATETIME NOT NULL, 
 
+    -- source is not the basis of identity or index
     source INT NOT NULL REFERENCES sources(id) ,
+
+    -- indexed
     type INT NOT NULL REFERENCES types(id),
 
     -- EDN of date -> count
     timeline MEDIUMBLOB
 );
 
-CREATE UNIQUE INDEX domain_timelines_unique ON referrer_subdomain_timelines (domain, host, source, type);
+CREATE UNIQUE INDEX domain_timelines_unique ON referrer_subdomain_timelines (domain, host, type, month);
 
 create table referrer_domain_events (
    event DATETIME NULL, 

@@ -320,33 +320,16 @@
 
 (defn insert-doi-timeline
   "Insert parts of an DOI's event timeline. This will merge the existing data.
-  This should be used to update large quantities of data per DOI, source, type.
-  merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  [doi type-name source-name data merge-fn]
+  This should be used to update large quantities of data per DOI, source, type."
+  [doi type-name source-name data]
   (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
-        doi (crdoi/non-url-doi doi)]
-   (try 
-      (let [initial-row (first (k/select table-name
-                                         (k/where {:doi doi
-                                                   :type type-id
-                                                    :source source-id})))
-            initial-row-data (d/coerce-timeline-out (or (read-edn (:timeline initial-row)) {}))
-            merged-data (merge-with merge-fn initial-row-data data)]
-        (if initial-row
-          (k/update table-name
-                    (k/where {:doi doi
-                              :type type-id
-                              :source source-id})
-                    (k/set-fields {:timeline (pr-str (d/coerce-timeline-in merged-data))}))
-          
-          (k/insert table-name
-                    (k/values {:doi doi
-                               :type type-id
-                               :source source-id
-                               :inserted (coerce/to-sql-time (t/now))
-                               :timeline (pr-str (d/coerce-timeline-in merged-data))}))))
-      ; SQL exception will be logged at console.
-      (catch Exception _))))
+        doi (crdoi/non-url-doi doi)
+        partitioned-timelines (partition-timeline data)]
+      (doseq [[year-month timeline] partitioned-timelines]   
+        (k/exec-raw [(str "insert into " table-name " (doi, type, month, source, inserted, timeline)
+                     values (?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)")
+                     [doi type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
+                      (pr-str (d/coerce-timeline-in timeline))]]))))
 
 (defn insert-doi-timelines
   "Insert chunk of event timelines in a transaction."
@@ -354,43 +337,23 @@
   (kdb/transaction
     (prn "insert-doi-timelines")
     (doseq [[doi timeline] chunk]
-      (insert-doi-timeline doi type-name source-name timeline #(max %1 %2)))))
+      (insert-doi-timeline doi type-name source-name timeline))))
 
 (defn insert-domain-timeline
   "Insert parts of a Referrer Domain's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  [host domain type-name source-name data merge-fn]
+  [host domain type-name source-name data]
   ; For domains use a single (non-sharded) table as the index load is far far lighter.
-  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
-    (when (and (< (.length domain) 128) (< (.length host) 128))
-      (let [initial-row (first (k/select d/referrer-domain-timelines
-                                         (k/where {:domain domain
-                                                    :host host
-                                                    :type type-id
-                                                    ; TODO should source be used to select? Is it part of identity?
-                                                    :source source-id})))
-            initial-row-data (or (:timeline initial-row) {})
-            merged-data (merge-with merge-fn initial-row-data data)]
+  (when (and (< (.length domain) 128) (< (.length host) 128))
+    (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+          partitioned-timelines (partition-timeline data)]
+          (doseq [[year-month timeline] partitioned-timelines]   
+            (k/exec-raw [(str "insert into referrer_domain_timelines (domain, host, type, month, source, inserted, timeline)
+                         values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)")
+                         [domain host type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
+                          (pr-str (d/coerce-timeline-in timeline))]])))))
         
-        
-        
-        (if initial-row
-          (k/update d/referrer-domain-timelines
-                    (k/where {:domain domain
-                              :host host
-                              :type type-id
-                              :source source-id})
-                    (k/set-fields {:timeline merged-data}))
-          
-          (k/insert d/referrer-domain-timelines
-                    (k/values {:domain domain
-                               :host host
-                               :type type-id
-                               :source source-id
-                               :inserted (coerce/to-sql-time (t/now))
-                               :timeline merged-data})))))))
-
 (defn insert-domain-timelines
   "Insert chunk of domain timelines in a transaction."
   [chunk type-name source-name]
@@ -399,7 +362,7 @@
     (doseq [[domain timeline] chunk]
       ; TODO only the host (not the domain) is supplied in current data format.
       ; TODO merge function should be taken from the types registry.
-      (insert-domain-timeline domain domain type-name source-name timeline #(max %1 %2)))))
+      (insert-domain-timeline domain domain type-name source-name timeline))))
 
 (defn insert-doi-domain-timeline
   "Insert parts of a DOI / Domain event timeline. Overwrite at month level."
@@ -407,7 +370,6 @@
   (when (and (< (.length host) 128) (< (.length host) 128))      
     (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
           partitioned-timelines (partition-timeline data)]
-        
       (doseq [[year-month timeline] partitioned-timelines]   
         (k/exec-raw ["insert into doi_domain_referral_month_timelines (doi, host, type, month, source, inserted, timeline)
                      values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)"
@@ -426,32 +388,16 @@
   "Insert parts of a Referrer Subdomain's event timeline. This will merge the existing data.
   This should be used to update large quantities of data per Domain.
   merge-fn is used to replace duplicates. It should accept [old, new] and return new. E.g.  #(max %1 %2)"
-  [host domain type-name source-name data merge-fn]
+  [host domain type-name source-name data]
   ; For domains use a single (non-sharded) table as the index load is far far lighter.
-  (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)]
-    (when (and (< (.length domain) 128) (< (.length host) 128))      
-      (let [initial-row (first (k/select d/referrer-subdomain-timelines
-                                         (k/where {:domain domain
-                                                   :host host
-                                                   :type type-id
-                                                   :source source-id})))
-            initial-row-data (or (:timeline initial-row) {})
-            merged-data (merge-with merge-fn initial-row-data data)]
-        (if initial-row
-          (k/update d/referrer-subdomain-timelines
-                    (k/where {:domain domain
-                              :host host
-                              :type type-id
-                              :source source-id})
-                    (k/set-fields {:timeline merged-data}))
-          
-          (k/insert d/referrer-subdomain-timelines
-                    (k/values {:domain domain
-                               :host host
-                               :type type-id
-                               :source source-id
-                               :inserted (coerce/to-sql-time (t/now))
-                               :timeline merged-data})))))))
+  (when (and (< (.length domain) 128) (< (.length host) 128))
+    (let [[_ type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
+          partitioned-timelines (partition-timeline data)]
+          (doseq [[year-month timeline] partitioned-timelines]   
+            (k/exec-raw [(str "insert into referrer_subdomain_timelines (domain, host, type, month, source, inserted, timeline)
+                         values (?, ?, ?, ?, ?, ?, ?) on duplicate key update timeline = values(timeline)")
+                         [domain host type-id (coerce/to-sql-time year-month) source-id (coerce/to-sql-time (t/now))
+                          (pr-str (d/coerce-timeline-in timeline))]])))))
 
 (defn insert-subdomain-timelines
   "Insert chunk of subdomain timelines in a transaction."
@@ -459,7 +405,7 @@
     (kdb/transaction
       (prn "chunk insert-subdomain-timelines")
       (doseq [[[host domain] timeline] chunk]
-        (insert-subdomain-timeline host domain type-name source-name timeline #(max %1 %2)))))
+        (insert-subdomain-timeline host domain type-name source-name timeline))))
 
 
 (defn sort-timeline-values
@@ -471,11 +417,17 @@
   "Get all timelines for a DOI from named table"
   [doi table-name]
   (when-let [timelines (k/select table-name
-                        (k/where {:doi (crdoi/non-url-doi doi)}))]    
-                        (map (fn [timeline]
-                               (assoc timeline :timeline (sort-timeline-values (d/coerce-timeline-out (read-edn (:timeline timeline))))
-                                               :inserted (coerce/from-sql-time (:inserted timeline))))
-                             timelines)))
+                        (k/where {:doi (crdoi/non-url-doi doi)}))]
+    (let [by-type (group-by :type timelines)
+          merged-by-type (map (fn [[type-id timelines]]
+                              ; Use the first item as a template and merge the respective timeline fragments into it.
+                                (assoc (first timelines) :timeline
+                                  (unpartition-timelines (map #(-> % :timeline read-edn d/coerce-timeline-out) timelines))
+                                  )) by-type)]
+    (map (fn [timeline]
+           (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
+         merged-by-type))))
+
 
 (defn get-doi-timelines
   "Get all timelines for a DOI from all tables"
@@ -492,10 +444,18 @@
     d/referrer-domain-timelines
     (k/where {:host domain})
     (k/with d/types))]
+    (let [by-type (group-by :type timelines)
+          merged-by-type (map (fn [[type-id timelines]]
+                              ; Use the first item as a template and merge the respective timeline fragments into it.
+                                (assoc (first timelines) :timeline
+                                  (unpartition-timelines (map #(-> % :timeline ) timelines))
+                                  )) by-type)]
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
-         timelines)))
-
+         merged-by-type))))
+    
+    
+  
 (defn get-subdomain-timelines
   "Get all timelines for a subdomain"
   [subdomain]
@@ -503,9 +463,15 @@
     d/referrer-subdomain-timelines
     (k/where {:host subdomain})
     (k/with d/types))]
+    (let [by-type (group-by :type timelines)
+          merged-by-type (map (fn [[type-id timelines]]
+                              ; Use the first item as a template and merge the respective timeline fragments into it.
+                                (assoc (first timelines) :timeline
+                                  (unpartition-timelines (map #(-> % :timeline ) timelines))
+                                  )) by-type)]
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
-         timelines)))
+         merged-by-type))))
 
 (defn get-doi-domain-timelines
   "Get all timelines for a DOI / domain referral"
