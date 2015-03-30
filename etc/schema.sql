@@ -47,7 +47,7 @@ CREATE TABLE timeline_shard_template (
 
     -- JSON of date -> count
     timeline MEDIUMBLOB
-) ENGINE = myisam;
+) ENGINE = innodb;
 
 -- type isn't indexed because it's the basis of the shard table identity, so is always known.
 CREATE UNIQUE INDEX doi_month ON timeline_shard_template (doi, month);
@@ -76,7 +76,7 @@ CREATE TABLE event_shard_template (
     arg1 TEXT,
     arg2 TEXT,
     arg3 TEXT
-) ENGINE = myisam;
+) ENGINE = innodb;
 
 -- no uniques in the events table.
 ALTER TABLE event_shard_template
@@ -106,7 +106,7 @@ CREATE TABLE milestone_shard_template (
     arg1 TEXT,
     arg2 TEXT,
     arg3 TEXT
-) ENGINE = myisam;
+) ENGINE = innodb;
 
 ALTER TABLE milestone_shard_template
 add UNIQUE INDEX events_tstt (doi, source), -- type is implicit by virtue of sharding
@@ -136,7 +136,7 @@ CREATE TABLE fact_shard_template (
     arg1 TEXT,
     arg2 TEXT,
     arg3 TEXT
-) ENGINE = myisam;
+) ENGINE = innodb;
 
 ALTER TABLE fact_shard_template
 add UNIQUE INDEX events_tstt (doi, source), -- type is implicit by virtue of sharding
@@ -227,7 +227,8 @@ CREATE TABLE doi_domain_referral_month_timelines (
 
     -- EDN of date -> count
     timeline MEDIUMBLOB
-) ENGINE = myisam;
+) ENGINE = innodb;
+
 CREATE UNIQUE INDEX doi_domain_timelines_month ON doi_domain_referral_month_timelines (doi, host, type, month);
 CREATE INDEX doi_domain_timelines_host_month ON  doi_domain_referral_month_timelines (host);
 

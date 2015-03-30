@@ -109,7 +109,9 @@
     ; chunks is sequence of [doi timeline]
     (doseq [chunk chunks]
       (prn "insert doi timeline chunk")
-      (data/insert-doi-timelines chunk type-name source-name))))
+       (let [chunk (map (fn [[doi timeline]]
+                         [doi (data/filter-timeline timeline)]) chunk)]
+      (data/insert-doi-timelines chunk type-name source-name)))))
 
 (defn insert-domain-timelines
   [base laskuri-name type-name source-name]
@@ -118,7 +120,9 @@
     ; chunks is sequence of [domain-host timeline]
     (doseq [chunk chunks]
       (prn "insert domain timeline chunk")
-      (data/insert-domain-timelines chunk type-name source-name))))
+      (let [chunk (map (fn [[domain timeline]]
+                         [domain (data/filter-timeline timeline)]) chunk)]
+      (data/insert-domain-timelines chunk type-name source-name)))))
 
 (defn insert-subdomain-timelines
   [base laskuri-name type-name source-name]
@@ -127,7 +131,9 @@
     ; chunks is sequence of [subdomain-host domain timeline]
     (doseq [chunk chunks]
       (prn "insert subdomain timeline chunk")
-      (data/insert-subdomain-timelines chunk type-name source-name))))
+      (let [chunk (map (fn [[[host domain] timeline]]
+                         [[host domain] (data/filter-timeline timeline)]) chunk)]
+      (data/insert-subdomain-timelines chunk type-name source-name)))))
 
 (defn insert-ever-doi-count
   [base laskuri-name type-name source-name]
@@ -182,7 +188,11 @@
     ; chunks is sequence of [doi host timeline]
     (doseq [chunk chunks]
       (prn "insert doi domain timeline chunk")
-      (data/insert-doi-domain-timelines chunk type-name source-name))))
+      (let [chunk (map (fn [[[doi host] timeline]]
+                         [[doi host] (data/filter-timeline timeline)]) chunk)]
+      (data/insert-doi-domain-timelines chunk type-name source-name)))))
+      
+      
 
 (defn run-local-grouped
     "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."
@@ -198,8 +208,6 @@
     ; day-subdomain-periods-count
     (insert-subdomain-timelines base "day-subdomain-periods-count" :daily-referral-domain :CrossRefLogs)
 
-    ; day-top-domains - IGNORE
-    
     ; ever-doi-count
     (insert-ever-doi-count base "ever-doi-count" :total-resolutions :CrossRefLogs)
     
@@ -211,11 +219,7 @@
     
     ; ever-subdomain-count
     (insert-ever-subdomain-count base "ever-subdomain-count" :total-referrals-subdomain :CrossRefLogs)
-    
-    ; month-doi-periods-count - IGNORE
-    ; month-domain-periods-count - IGNORE
-    ; month-subdomain-periods-count - IGNORE
-    
+  
     ; month-top-domains
     (insert-month-top-domains base "month-top-domains")
     

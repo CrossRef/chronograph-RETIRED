@@ -25,6 +25,14 @@
 (def type-ids-by-name (atom {}))
 (def source-ids-by-name (atom {}))
 
+; When a count is filtered, this is the minumum.
+(def filter-count-minimum 2)
+
+(defn filter-timeline
+  "Filter a timline to remove those entries under the filter-count-minimum."
+  [timeline]
+  (into {} (filter #(> (second %) filter-count-minimum) timeline)))
+
 (defn partition-timeline
   "Partition a timeline into months return {date -> timeline-partition}."
   [timeline]
