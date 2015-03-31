@@ -122,7 +122,7 @@
       (prn "insert domain timeline chunk")
       (let [chunk (map (fn [[domain timeline]]
                          [domain (data/filter-timeline timeline)]) chunk)]
-      (data/insert-domain-timelines chunk type-name source-name)))))
+      (data/put-on-work-queue #(data/insert-domain-timelines chunk type-name source-name))))))
 
 (defn insert-subdomain-timelines
   [base laskuri-name type-name source-name]
@@ -133,7 +133,7 @@
       (prn "insert subdomain timeline chunk")
       (let [chunk (map (fn [[[host domain] timeline]]
                          [[host domain] (data/filter-timeline timeline)]) chunk)]
-      (data/insert-subdomain-timelines chunk type-name source-name)))))
+      (data/put-on-work-queue #(data/insert-subdomain-timelines chunk type-name source-name))))))
 
 (defn insert-ever-doi-count
   [base laskuri-name type-name source-name]
@@ -142,7 +142,7 @@
     ; chunks is sequence of [doi count]
     (doseq [chunk chunks]
       (prn "insert ever-doi-count chunk" type-name source-name)
-      (data/insert-doi-resolutions-count chunk type-name source-name))))
+      (data/put-on-work-queue #(data/insert-doi-resolutions-count chunk type-name source-name)))))
 
 (defn insert-ever-first-date
   [base laskuri-name type-name source-name]
@@ -151,7 +151,7 @@
     ; chunks is sequence of [doi date]
     (doseq [chunk chunks]
       (prn "insert insert-ever-first-date chunk")
-      (data/insert-doi-first-resolution chunk type-name source-name))))
+      (data/put-on-work-queue #(data/insert-doi-first-resolution chunk type-name source-name)))))
 
 (defn insert-ever-domain-count
   [base laskuri-name type-name source-name]
@@ -160,7 +160,7 @@
     ; chunks is sequence of [domain count]
     (doseq [chunk chunks]
       (prn "insert insert-ever-domain-count chunk")
-      (data/insert-domain-count chunk type-name source-name))))
+      (data/put-on-work-queue #(data/insert-domain-count chunk type-name source-name)))))
 
 (defn insert-ever-subdomain-count
   [base laskuri-name type-name source-name]
@@ -169,7 +169,7 @@
     ; chunks is sequence of [host domain count]
     (doseq [chunk chunks]
       (prn "insert insert-ever-subdomain-count chunk")
-      (data/insert-subdomain-count chunk type-name source-name))))
+      (data/put-on-work-queue #(data/insert-subdomain-count chunk type-name source-name)))))
 
 ; no source name because this goes into a special table and can only come from one place (logs).
 (defn insert-month-top-domains
@@ -179,7 +179,7 @@
     ; chunks is sequence of [date {domain: count}]
     (doseq [chunk chunks]
       (prn "insert insert-month-top-domains chunk")
-      (data/insert-month-top-domains chunk))))
+      (data/put-on-work-queue #(data/insert-month-top-domains chunk)))))
 
 (defn insert-month-doi-domain-period-count
   [base laskuri-name type-name source-name]
@@ -190,7 +190,7 @@
       (prn "insert doi domain timeline chunk")
       (let [chunk (map (fn [[[doi host] timeline]]
                          [[doi host] (data/filter-timeline timeline)]) chunk)]
-      (data/insert-doi-domain-timelines chunk type-name source-name)))))
+      (data/put-on-work-queue #(data/insert-doi-domain-timelines chunk type-name source-name))))))
       
       
 

@@ -25,6 +25,18 @@
 (def type-ids-by-name (atom {}))
 (def source-ids-by-name (atom {}))
 
+; General purpose work queue.
+; Used for import, not live, which have their own specific queues.
+(def background-work-queue (chan 10))
+(doseq [_ (range 10)]
+  (go
+    (while true
+      (let [f (<! background-work-queue)]
+        (f)))))
+(defn put-on-work-queue [f]
+  (>!! background-work-queue f))
+
+
 ; When a count is filtered, this is the minumum.
 (def filter-count-minimum 2)
 
