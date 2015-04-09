@@ -14,7 +14,7 @@
   (:require [clj-time.coerce :as coerce]
             [clj-time.format :refer [parse formatter unparse]])
   (:require [robert.bruce :refer [try-try-again]])
-  (:require [clojure.core.async :as async :refer [<! <!! >!! go chan]]
+  (:require [clojure.core.async :as async :refer [<! <!! >!! >! go chan]]
             [clojure.java.io :refer [reader]]
             [clojure.edn :as edn]))
 
@@ -25,17 +25,31 @@
 (def type-ids-by-name (atom {}))
 (def source-ids-by-name (atom {}))
 
+; Threadsafe logging
+(def log-queue (chan 100))
+(go
+    (while true
+      (prn (<! log-queue))))
+(defn log [message]
+  (>!! log-queue message))
+
+
 ; General purpose work queue.
 ; Used for import, not live, which have their own specific queues.
 (def background-work-queue (chan 10))
+
+
+(defn put-on-work-queue [f]
+  (prn "put on work queue" f)
+  (>!! background-work-queue f))
+
 (doseq [_ (range 10)]
   (go
     (while true
       (let [f (<! background-work-queue)]
-        (f)))))
-(defn put-on-work-queue [f]
-  (>!! background-work-queue f))
-
+        (log (str "Start" f))
+        (f)
+        (log (str "Finish" f))))))
 
 ; When a count is filtered, this is the minumum.
 (def filter-count-minimum 2)
@@ -120,17 +134,18 @@
   ; Discard the conflict resolution method as they don't apply for events.
   (let [[table-name type-id source-id _] (get-shard-info type-name source-name)
         doi (crdoi/non-url-doi doi)]
-    (try
+    ; (try
       (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, event, inserted, count, arg1, arg2, arg3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
                    [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
-      (catch Exception e (prn "EXCEPTION" e)))))
+      ; (catch Exception e (prn "EXCEPTION" e)))
+      ))
 
 (defn insert-milestone
   "Insert milestone using type's conflict resolution strategy with regard to the event dates."
   [doi type-name source-name date cnt arg1 arg2 arg3]
   (let [[table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
         doi (crdoi/non-url-doi doi)]
-    (try
+    ; (try
       (condp = conflict-resolution-method
         :older (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
                                                             count = IF(event<VALUES(event), count, VALUES(count)),
@@ -162,7 +177,8 @@
                                                             arg2 = VALUES(arg2),
                                                             arg3 = VALUES(arg3);)")
                    [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]]))
-      (catch Exception e (prn "EXCEPTION" e)))))
+      ; (catch Exception e (prn "EXCEPTION" e)))
+      ))
 
 (defn insert-fact
   "Insert fact using type's conflict resolution strategy with regard to the insertion date."
@@ -170,7 +186,7 @@
   (let [date (t/now)
         [table-name type-id source-id conflict-resolution-method] (get-shard-info type-name source-name)
         doi (crdoi/non-url-doi doi)]
-    (try
+    ; (try
       (condp = conflict-resolution-method
         :older (k/exec-raw [(str "INSERT INTO " table-name " (doi, type, source, inserted, count, arg1, arg2, arg3) VALUES (?, ?,  ?, ?, ?, ?, ?, ?)
                                                            ON DUPLICATE KEY UPDATE
@@ -203,7 +219,8 @@
                                                              arg2 = VALUES(arg2),
                                                              arg3 = VALUES(arg3)")
                    [doi type-id source-id (coerce/to-sql-time date) (or cnt 1) arg1 arg2 arg3]]))
-      (catch Exception e (prn "EXCEPTION" e)))))
+      ; (catch Exception e (prn "EXCEPTION" e)))
+      ))
 
 
 ; Large buffer in case we are blocked on table write as the table is ISAM and might be locked.
@@ -246,20 +263,22 @@
 (defn insert-domain-event
   [domain type-id source-id date cnt]
     (when (and (< (.length domain) 128))
-      (try
+      ; (try
         (k/exec-raw ["INSERT INTO referrer_domain_events (domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
                      [domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
                       (coerce/to-sql-time date) (or cnt 1)]])
-        (catch Exception e (prn "EXCEPTION" e)))))
+        ; (catch Exception e (prn "EXCEPTION" e)))
+        ))
 
 (defn insert-subdomain-event
   [host domain type-id source-id date cnt]
   (when (and (< (.length domain) 128) (< (.length host) 128))
-    (try
+    ; (try
       (k/exec-raw ["INSERT INTO referrer_subdomain_events (subdomain, domain, type, source, event, inserted, count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event = ?, count = ?"
                    [host domain type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1)
                     (coerce/to-sql-time date) (or cnt 1)]])
-      (catch Exception e (prn "EXCEPTION" e)))))
+      ; (catch Exception e (prn "EXCEPTION" e)))
+      ))
 
 ; The following functions call insert-event, so carry through the type-name and source-name without resolving them.
 

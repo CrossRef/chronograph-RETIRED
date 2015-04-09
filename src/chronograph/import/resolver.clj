@@ -42,7 +42,7 @@
           (when ok
             [first-redirect last-redirect (count redirects)]))
     (catch Exception ex (let [message (.getMessage ex)]
-                          (prn "EXCEPTION" ex)
+                          (prn "EXCEPTIONN" ex)
                           ; When it's FTP we can't follow, but we can say that we tried.
                           ; Message is: Scheme 'ftp' not registered.
                           (when (.contains message "ftp")

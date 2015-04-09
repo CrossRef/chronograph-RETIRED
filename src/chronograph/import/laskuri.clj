@@ -92,7 +92,7 @@
         ; Lazy seq of the files.
         seqs (map (fn [f]
                     (swap! cnt inc)
-                    (prn (str "Part file " @cnt " / " total))
+                    (data/log (str "Part file " @cnt " / " total " from " dirname))
                     (line-seq (clojure.java.io/reader f))) part-files)
         
         ; Lazy seq of all lines.
@@ -108,7 +108,7 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [doi timeline]
     (doseq [chunk chunks]
-      (prn "insert doi timeline chunk")
+      (data/log "insert doi timeline chunk")
        (let [chunk (map (fn [[doi timeline]]
                          [doi (data/filter-timeline timeline)]) chunk)]
       (data/insert-doi-timelines chunk type-name source-name)))))
@@ -119,10 +119,10 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [domain-host timeline]
     (doseq [chunk chunks]
-      (prn "insert domain timeline chunk")
+      (data/log "insert domain timeline chunk")
       (let [chunk (map (fn [[domain timeline]]
                          [domain (data/filter-timeline timeline)]) chunk)]
-      (data/put-on-work-queue #(data/insert-domain-timelines chunk type-name source-name))))))
+      (data/insert-domain-timelines chunk type-name source-name)))))
 
 (defn insert-subdomain-timelines
   [base laskuri-name type-name source-name]
@@ -130,10 +130,10 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [subdomain-host domain timeline]
     (doseq [chunk chunks]
-      (prn "insert subdomain timeline chunk")
+      (data/log "insert subdomain timeline chunk")
       (let [chunk (map (fn [[[host domain] timeline]]
                          [[host domain] (data/filter-timeline timeline)]) chunk)]
-      (data/put-on-work-queue #(data/insert-subdomain-timelines chunk type-name source-name))))))
+      (data/insert-subdomain-timelines chunk type-name source-name)))))
 
 (defn insert-ever-doi-count
   [base laskuri-name type-name source-name]
@@ -141,8 +141,8 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [doi count]
     (doseq [chunk chunks]
-      (prn "insert ever-doi-count chunk" type-name source-name)
-      (data/put-on-work-queue #(data/insert-doi-resolutions-count chunk type-name source-name)))))
+      (data/log (str "insert ever-doi-count chunk" type-name source-name))
+      (data/insert-doi-resolutions-count chunk type-name source-name))))
 
 (defn insert-ever-first-date
   [base laskuri-name type-name source-name]
@@ -150,8 +150,8 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [doi date]
     (doseq [chunk chunks]
-      (prn "insert insert-ever-first-date chunk")
-      (data/put-on-work-queue #(data/insert-doi-first-resolution chunk type-name source-name)))))
+      (data/log "insert insert-ever-first-date chunk")
+      (data/insert-doi-first-resolution chunk type-name source-name))))
 
 (defn insert-ever-domain-count
   [base laskuri-name type-name source-name]
@@ -159,8 +159,8 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [domain count]
     (doseq [chunk chunks]
-      (prn "insert insert-ever-domain-count chunk")
-      (data/put-on-work-queue #(data/insert-domain-count chunk type-name source-name)))))
+      (data/log "insert insert-ever-domain-count chunk")
+      (data/insert-domain-count chunk type-name source-name))))
 
 (defn insert-ever-subdomain-count
   [base laskuri-name type-name source-name]
@@ -168,8 +168,8 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [host domain count]
     (doseq [chunk chunks]
-      (prn "insert insert-ever-subdomain-count chunk")
-      (data/put-on-work-queue #(data/insert-subdomain-count chunk type-name source-name)))))
+      (data/log "insert insert-ever-subdomain-count chunk")
+      (data/insert-subdomain-count chunk type-name source-name))))
 
 ; no source name because this goes into a special table and can only come from one place (logs).
 (defn insert-month-top-domains
@@ -178,8 +178,8 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [date {domain: count}]
     (doseq [chunk chunks]
-      (prn "insert insert-month-top-domains chunk")
-      (data/put-on-work-queue #(data/insert-month-top-domains chunk)))))
+      (data/log "insert insert-month-top-domains chunk")
+      (data/insert-month-top-domains chunk))))
 
 (defn insert-month-doi-domain-period-count
   [base laskuri-name type-name source-name]
@@ -187,40 +187,85 @@
         chunks (partition-all transaction-chunk-size lines)]
     ; chunks is sequence of [doi host timeline]
     (doseq [chunk chunks]
-      (prn "insert doi domain timeline chunk")
+      (data/log "insert doi domain timeline chunk")
       (let [chunk (map (fn [[[doi host] timeline]]
                          [[doi host] (data/filter-timeline timeline)]) chunk)]
-      (data/put-on-work-queue #(data/insert-doi-domain-timelines chunk type-name source-name))))))
+      (data/insert-doi-domain-timelines chunk type-name source-name)))))
       
       
 
 (defn run-local-grouped
     "Import latest Laskuri output, grouped by DOI, from a local directory. Base is the directory within the bucket, usually a timestamp."
     [base]    
-    (prn "Run Laskuri Local Grouped")
-    
-    ; day-doi-periods-count
-    (insert-doi-timelines base "day-doi-periods-count" :daily-resolutions :CrossRefLogs)
-    
-    ; day-domain-periods-count
-    (insert-domain-timelines base "day-domain-periods-count" :daily-referral-domain :CrossRefLogs)
-    
-    ; day-subdomain-periods-count
-    (insert-subdomain-timelines base "day-subdomain-periods-count" :daily-referral-domain :CrossRefLogs)
+    (data/log "Run Laskuri Local Grouped")
+    (let [c (async/chan)]
 
-    ; ever-doi-count
-    (insert-ever-doi-count base "ever-doi-count" :total-resolutions :CrossRefLogs)
+      ; day-doi-periods-count
+      (data/log "Queue day-doi-periods-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start day-doi-periods-count")
+                                (insert-doi-timelines base "day-doi-periods-count" :daily-resolutions :CrossRefLogs)
+                                (>!! c :day-doi-periods-count)))
+      
+      ; day-domain-periods-count
+      (data/log "Queue day-domain-periods-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start day-domain-periods-count")
+                                (insert-domain-timelines base "day-domain-periods-count" :daily-referral-domain :CrossRefLogs)
+                                (>!! c :day-domain-periods-count)))
+      
+      ; day-subdomain-periods-count
+      (data/log "Queue day-subdomain-periods-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start day-subdomain-periods-count")
+                                (insert-subdomain-timelines base "day-subdomain-periods-count" :daily-referral-domain :CrossRefLogs)
+                                (>!! c :day-subdomain-periods-count)))
+      
+      ; ever-doi-count
+      (data/log "Queue ever-doi-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start ever-doi-count")
+                                (insert-ever-doi-count base "ever-doi-count" :total-resolutions :CrossRefLogs)
+                                (>!! c :total-resolutions)))
+      
+      ; ever-doi-first-date
+      (data/log "Queue ever-doi-first-date")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start ever-doi-first-date")
+                                (insert-ever-first-date base "ever-doi-first-date" :first-resolution :CrossRefLogs)
+                                (>!! c :ever-doi-first-date)))
+      
+      ; ever-domain-count
+      (data/log "Queue ever-domain-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start ever-domain-count")
+                                (insert-ever-domain-count base "ever-domain-count" :total-referrals-domain :CrossRefLogs)
+                                (>!! c :ever-domain-count)))
+      
+      ; ever-subdomain-count
+      (data/log "Queue ever-subdomain-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start ever-subdomain-count")
+                                (insert-ever-subdomain-count base "ever-subdomain-count" :total-referrals-subdomain :CrossRefLogs)
+                                (>!! c :ever-subdomain-count)))
+      
+      ; month-top-domains
+      (data/log "Queue month-top-domains")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start month-top-domains")
+                                (insert-month-top-domains base "month-top-domains")
+                                (>!! c :month-top-domains)))
+      
+      (data/log "Queue month-doi-domain-periods-count")
+      (data/put-on-work-queue (fn []
+                                (data/log "Start month-doi-domain-periods-count")
+                                (insert-month-doi-domain-period-count base "month-doi-domain-periods-count" :total-referrals-domain :CrossRefLogs)
+                                (>!! c :month-doi-domain-periods-count)))
     
-    ; ever-doi-first-date
-    (insert-ever-first-date base "ever-doi-first-date" :first-resolution :CrossRefLogs)
+    ; Wait for all to complete.
     
-    ; ever-domain-count
-    (insert-ever-domain-count base "ever-domain-count" :total-referrals-domain :CrossRefLogs)
+    (doseq [_ (range 9)]
+      (data/log (str "FINISHED" (async/<!! c))))
+    (data/log "Completed all")
     
-    ; ever-subdomain-count
-    (insert-ever-subdomain-count base "ever-subdomain-count" :total-referrals-subdomain :CrossRefLogs)
-  
-    ; month-top-domains
-    (insert-month-top-domains base "month-top-domains")
-    
-    (insert-month-doi-domain-period-count base "month-doi-domain-periods-count" :total-referrals-domain :CrossRefLogs))
+    ))
