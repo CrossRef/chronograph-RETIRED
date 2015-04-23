@@ -265,7 +265,7 @@
                                    "text/html" :seconds
                                    "application/json" :iso8601)
                      
-                     
+                    
                      
                      response {:first-date first-date
                                :last-date last-date
@@ -273,7 +273,8 @@
                                :events (map types/export-type-info events)
                                :milestones (map types/export-type-info milestones)
                                :facts (map types/export-type-info facts)
-                               :timelines (map types/export-type-info interpolated-timelines)}
+                               :timelines (map types/export-type-info interpolated-timelines)
+                               }
                      
                      ; Dates in response need converting. This is sent back as JSON.
                      ; Dates in render-context can be 'real' dates as they're consumed by the template.
@@ -287,6 +288,8 @@
                                      :first-date first-date
                                      :last-date last-date
                                      :response response-timeline-dates-converted}]
+                 
+                 
                                                     
                   (condp = (get-in ctx [:representation :media-type])
                     

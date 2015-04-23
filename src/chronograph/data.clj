@@ -123,7 +123,8 @@
   "Take a seq of events, decorate with type and source info"
   [events]
   (let [mapped (map
-                 (fn [event] (assoc event :type (@types-by-id (:type event))
+                 (fn [event]
+                   (assoc event :type (@types-by-id (:type event))
                                            :source (@sources-by-id (:source event))))
                  events)]
     mapped))
@@ -155,8 +156,8 @@
                                                             type = IF(event<VALUES(event), type, VALUES(type)),
                                                             arg1 = IF(event<VALUES(event), arg1, VALUES(arg1)),
                                                             arg2 = IF(event<VALUES(event), arg2, VALUES(arg2)),
-                                                            arg3 = IF(event<VALUES(event), arg3, VALUES(arg3));)")
-                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
+                                                            arg3 = IF(event<VALUES(event), arg3, VALUES(arg3))")
+                   [doi (or cnt 1) (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) source-id type-id arg1 arg2 arg3]])
         :newer (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
                                                             count = IF(event>VALUES(event), count, VALUES(count)),
                                                             event = IF(event>VALUES(event), event, VALUES(event)),
@@ -165,8 +166,8 @@
                                                             type = IF(event>VALUES(event), type, VALUES(type)),
                                                             arg1 = IF(event>VALUES(event), arg1, VALUES(arg1)),
                                                             arg2 = IF(event>VALUES(event), arg2, VALUES(arg2)),
-                                                            arg3 = IF(event>VALUES(event), arg3, VALUES(arg3));)")
-                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]])
+                                                            arg3 = IF(event>VALUES(event), arg3, VALUES(arg3))")
+                   [doi (or cnt 1) (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) source-id type-id arg1 arg2 arg3]])
         :replace (k/exec-raw [(str "INSERT INTO " table-name " (doi, count, event, inserted, source, type, arg1, arg2, arg3) values (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE
                                                             count = VALUES(count),
                                                             event = VALUES(event),
@@ -175,10 +176,8 @@
                                                             type = VALUES(type),
                                                             arg1 = VALUES(arg1),
                                                             arg2 = VALUES(arg2),
-                                                            arg3 = VALUES(arg3);)")
-                   [doi type-id source-id (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) (or cnt 1) arg1 arg2 arg3]]))
-      ; (catch Exception e (prn "EXCEPTION" e)))
-      ))
+                                                            arg3 = VALUES(arg3)")
+                   [doi (or cnt 1) (coerce/to-sql-time date) (coerce/to-sql-time (t/now)) source-id type-id arg1 arg2 arg3]]))))
 
 (defn insert-fact
   "Insert fact using type's conflict resolution strategy with regard to the insertion date."
@@ -459,9 +458,11 @@
                         (k/where {:doi (crdoi/non-url-doi doi)}))]
     (let [by-type (group-by :type timelines)
           merged-by-type (map (fn [[type-id timelines]]
-                              ; Use the first item as a template and merge the respective timeline fragments into it.
-                                (assoc (first timelines) :timeline
-                                  (unpartition-timelines (map #(-> % :timeline read-edn d/coerce-timeline-out) timelines))
+                              ; Use the first item as a template and merge the respective timeline fragments into it
+                                (assoc (first timelines)
+                                  :month (coerce/to-date-time (:month (first timelines)))
+                                  :inserted (coerce/to-date-time (:inserted (first timelines)))
+                                  :timeline (unpartition-timelines (map #(-> % :timeline read-edn d/coerce-timeline-out) timelines))
                                   )) by-type)]
     (map (fn [timeline]
            (assoc timeline :timeline (sort-timeline-values (:timeline timeline))))
@@ -797,7 +798,9 @@ events))
     (reset! sources-by-id srcs-by-id)
   
     (reset! type-ids-by-name typ-ids-by-name)
-    (reset! source-ids-by-name srcs-ids-by-name)))
+    (reset! source-ids-by-name srcs-ids-by-name))
+  
+  nil)
 
 (defn truncate-date-for-bucket [date]
   (t/date-time (t/year date) (t/month date) (t/day date) (t/hour date)))

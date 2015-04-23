@@ -53,8 +53,7 @@
   []
   (@s)
   (reset! s nil)
-  (prn "Stop Server" @s)
-  )
+  (prn "Stop Server" @s))
 
 (defn start-server []
   (data/init!)

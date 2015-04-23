@@ -77,7 +77,7 @@
     {:name :first-resolution
      :description "First DOI resolution"
      :storage :milestone
-     :conflict :first
+     :conflict :older
      :format standard-format}
     {:name :total-resolutions
      :description "Total resolutions count"
