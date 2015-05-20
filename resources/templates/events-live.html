@@ -123,7 +123,7 @@
             componentDidMount: function () {
                 var self = this;
 
-                var socketUrl =  window.location.href.replace("http://", "ws://").replace("https://", "ws://") + "/socket";
+                var socketUrl =  "ws://socket" + window.location.pathname;
                 socket = new WebSocket(socketUrl);
 
                 socket.onmessage = function(item) {

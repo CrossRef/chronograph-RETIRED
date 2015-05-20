@@ -636,7 +636,8 @@
   (GET "/top-domains" [] (top-domains))
   (GET ["/events/types/:type-name" :type-name #"[^/]*"] [type-name] (event-types type-name))
   (GET ["/events/types/:type-name/live" :type-name #"[^/]*"] [type-name] (event-types-live type-name))
-  (GET ["/events/types/:type-name/live/socket" :type-name #"[^/]*"] [type-name] event-types-socket)
+  ; Prefixed for easy apache reverse proxy protocol dispatch.
+  (GET ["/socket/events/types/:type-name/live" :type-name #"[^/]*"] [type-name] event-types-socket)
   
   
   (context "/dois" []
