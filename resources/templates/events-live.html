@@ -75,6 +75,7 @@
 
                 var port = ":" + (window.location.port || "80");
                 var socketUrl =  "ws://" + window.location.hostname + port + "/socket" + window.location.pathname;
+                
                 socket = new WebSocket(socketUrl);
 
                 socket.onmessage = function(item) {
@@ -93,6 +94,10 @@
 
                     self.checkDoi(data.doi, data.key);
                 };
+
+                socket.onerror = function() {
+                    this.setState({error: true});
+                }
             },
 
             checkDoi: function(doi, key) {
@@ -143,6 +148,10 @@
             },
 
             render: function() {
+                if (this.state.error) {
+                    return <p className="error">Sorry there was an error connecting to the server. Please refresh the page or email labs@crossref.org if you are having continued problems.</p>
+                }
+
                 // Group these per day.
                 var allDaysWorth = [];
                 var currentDaysWorth = [];
@@ -525,6 +534,7 @@
 
 
         <div class='container' id='content'>
+        <p class="strong">If you are having problems viewing this page please email labs@crossref.org . This page requires JavaScript and a modern browser to work.</p>
         </div>
 
     
