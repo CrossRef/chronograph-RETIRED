@@ -78,13 +78,11 @@
                 socket = new WebSocket(socketUrl);
 
                 socket.onmessage = function(item) {
-                    var data = JSON.parse(item.data);
-                    var items = self.state.items;
-                    var count = counter();
-
                     // Only add if the API says it's OK.
-                    $.get("http://api.crossref.org/v1/works/" + data.doi).
+                    $.get("http://api.crossref.org/v1/works/" + item.data.doi).
                     success(function(response) {
+                        var count = counter();
+
                         var title = response && response.message && response.message.title[0];
                         var typeLabel = response && response.message && response.message.type;
                         var type = itemTypes[typeLabel] || "";
@@ -92,10 +90,13 @@
                         var authors = response && response.message && response.message.author;
                         var formattedAuthors = authors.map(function(author) { return author.family + ", " + author.given[0]}).join(", ");
 
+                        var data = JSON.parse(item.data);
+
                         // Set unique key for event (react needs this).
                         data.key = count;
                         data.fromApi = {title: title, type: type, containerTitle: containerTitle, authors: formattedAuthors};
 
+                        var items = self.state.items;
                         items.unshift(data);
 
                         // Limit to 200.

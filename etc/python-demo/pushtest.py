@@ -24,5 +24,5 @@ while True:
                                             "arg3":timestamp}, headers= {"Token": PUSH_TOKEN})
   print resp
 
-  time.sleep(10)
+  time.sleep(5)
 
