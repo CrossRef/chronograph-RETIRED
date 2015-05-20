@@ -153,13 +153,14 @@
                         var itemDate = new Date(item.date);
                         var label = moment(itemDate).format('LL');
 
-                        if (currentLabel) {
-                            if (label == currentLabel) {
-                                currentDaysWorth.push(item);
-                            } else {
-                                allDaysWorth.push([currentLabel, currentDaysWorth]);
-                                currentDaysWorth = [item];
-                            }
+                        // First time round it's null.
+                        currentLabel =  currentLabel || label;
+
+                        if (label == currentLabel) {
+                            currentDaysWorth.push(item);
+                        } else {
+                            allDaysWorth.push([currentLabel, currentDaysWorth]);
+                            currentDaysWorth = [item];
                         }
 
                         currentLabel = label;
