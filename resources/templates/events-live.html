@@ -11,87 +11,39 @@
         <script src="/lib/moment/moment.js"></script>
 
         <script type="text/jsx">
-        // from https://github.com/CrossRef/cayenne/blob/master/src/cayenne/item_tree.clj#L9
-        window.itemTypes = {
-            "journal":  "Journal",
-            "article":  "Article",
-            "journal-article":  "Journal Article",
-            "journal-issue":  "Journal Issue",
-            "journal-volume":  "Journal Volume",
-            "proceedings":  "Proceedings",
-            "proceedings-series":  "Proceedings Series",
-            "proceedings-article":  "Conference Paper",
-            "report":  "Report",
-            "report-series":  "Report Series",
-            "standard":  "Standard",
-            "standard-series":  "Standard Series",
-            "dataset":  "Dataset",
-            "edited-book":  "Book",
-            "monograph":  "Monograph",
-            "reference-book":  "Reference",
-            "book":  "Book",
-            "book-series":  "Book Series",
-            "book-set":  "Book Set",
-            "chapter":  "Chapter",
-            "section":  "Section",
-            "part":  "Part",
-            "track":  "Track",
-            "reference-entry":  "Entry",
-            "dissertation":  "Dissertation",
-            "component":  "Component",
-            "image":  "Image",
-            "model":  "Model",
-            "film":  "Film",
-            "other":  "Other"};
-
         window.counter = (function() {
-                    var count = 0;
-        
-                    return function() {
-                        count ++;
-                        return count;
-                    }
-                })();
+            var count = 0;
+
+            return function() {
+                count ++;
+                return count;
+            }})();
 
         var Entry = React.createClass({
-            getInitialState: function () {
-                return {title: "..."};
-            },
-
-            componentDidMount: function() {
-                var self = this;
-                $.get("http://api.crossref.org/v1/works/" + this.props.item.doi).then(function(response) {
-                    var title = response && response.message && response.message.title[0];
-                    var typeLabel = response && response.message && response.message.type;
-                    var type = itemTypes[typeLabel] || "";
-                    var containerTitle = response && response.message && response.message['container-title'][0] || "";
-                    var authors = response && response.message && response.message.author;
-                    var formattedAuthors = authors.map(function(author) { return author.family + ", " + author.given[0]}).join(", ");
-                    self.setState({title: title, type: type, containerTitle: containerTitle, authors: formattedAuthors});
-                })
-            },
-
             render: function() {
+                var wikiHost = this.props.item.formatted['Wiki'];
+                var wikiSubdomain = wikiHost.split(".")[0];
+                var wikiName = window.wikis[wikiSubdomain] || wikiHost;
+
                 var rendered;
                 switch (this.props.item.type) {
                     case "WikipediaCitation": 
                     rendered = <tr>
-                        <td><div><small>Wikipedia article</small></div>
-                            <div className="itemTitle">{this.props.item.formatted.Title}</div>
-                            <div><a href={this.props.item.formatted["Page URL"]}>{this.props.item.formatted["Page URL"]}</a></div>
+                        <td><div><small>Wikipedia Article</small></div>
+                            <div className="itemTitle"><a href={this.props.item.formatted["Page URL"]}>{this.props.item.formatted.Title}</a></div>
+                            <div>{wikiName} Wikipedia</div>
                         </td>
                         <td className="citeAction"><strong>{this.props.item.formatted.Action == 'add' ? "cited" : "uncited"}</strong> <br />
                         {moment(this.props.item.date).calendar()}
                         </td>
                         <td>
-                        <div><small>{this.state.type}</small></div>
-                        <div className="itemTitle">{this.state.title}</div>
-                        <div>{this.state.containerTitle}</div>
-                        <div>{this.state.authors}</div>
-                        <div>DOI: <a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
+                        <div><small>{this.props.item.fromApi.type}</small></div>
+                        <div className="itemTitle"><a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.fromApi.title}</a></div>
+                        <div>{this.props.item.fromApi.containerTitle}</div>
+                        <div>{this.props.item.fromApi.authors}</div>
+                        <div><a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
                         </td>
                     </tr>; break;
-
 
                     default:
                     rendered = <tr>
@@ -100,19 +52,17 @@
                         </td>
                         <td className="citeAction">cited</td>
                         <td>
-                        <div><small>{this.state.type}</small></div>
+                        <div><small>{this.props.item.fromApi.type}</small></div>
                         <div className="itemTitle">{this.state.title}</div>
-                        <div>{this.state.containerTitle}</div>
-                        <div>{this.state.authors}</div>
-                        <div>DOI: <a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
+                        <div>{this.props.item.fromApi.containerTitle}</div>
+                        <div>{this.props.item.fromApi.authors}</div>
+                        <div><a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
                         </td>
                     </tr>; break;
                 }
 
-
                 return rendered;
             }
-
         });
 
         var StreamTable = React.createClass({
@@ -132,14 +82,28 @@
                     var items = self.state.items;
                     var count = counter();
 
-                    // Set unique key for event (react needs this).
-                    data.key = count;
+                    // Only add if the API says it's OK.
+                    $.get("http://api.crossref.org/v1/works/" + data.doi).
+                    success(function(response) {
+                        var title = response && response.message && response.message.title[0];
+                        var typeLabel = response && response.message && response.message.type;
+                        var type = itemTypes[typeLabel] || "";
+                        var containerTitle = response && response.message && response.message['container-title'][0] || "";
+                        var authors = response && response.message && response.message.author;
+                        var formattedAuthors = authors.map(function(author) { return author.family + ", " + author.given[0]}).join(", ");
 
-                    items.unshift(data);
+                        // Set unique key for event (react needs this).
+                        data.key = count;
+                        data.fromApi = {title: title, type: type, containerTitle: containerTitle, authors: formattedAuthors};
 
-                    // Limit to 200.
-                    items = items.slice(0, 200);
-                    self.setState({items: items});
+                        items.unshift(data);
+
+                        // Limit to 200.
+                        items = items.slice(0, 200);
+                        self.setState({items: items});  
+                    }).fail(function(response) {
+                        console.log("DOI was not recognised:", data.doi);
+                    })
                 };
             },
 
@@ -177,7 +141,7 @@
 
                     return  <div key={dayLabel}>
 
-                        <h1>{dayLabel}</h1>
+                        <h3>{dayLabel}</h3>
                         <table className="table table-striped event-table">
                          <thead>
                            <tr>
@@ -197,7 +161,330 @@
         React.render(
             <StreamTable />,
             document.getElementById('content')
-          );
+        );
+
+        // from https://github.com/CrossRef/cayenne/blob/master/src/cayenne/item_tree.clj#L9
+        window.itemTypes = {
+            "journal":  "Journal",
+            "article":  "Article",
+            "journal-article":  "Journal Article",
+            "journal-issue":  "Journal Issue",
+            "journal-volume":  "Journal Volume",
+            "proceedings":  "Proceedings",
+            "proceedings-series":  "Proceedings Series",
+            "proceedings-article":  "Conference Paper",
+            "report":  "Report",
+            "report-series":  "Report Series",
+            "standard":  "Standard",
+            "standard-series":  "Standard Series",
+            "dataset":  "Dataset",
+            "edited-book":  "Book",
+            "monograph":  "Monograph",
+            "reference-book":  "Reference",
+            "book":  "Book",
+            "book-series":  "Book Series",
+            "book-set":  "Book Set",
+            "chapter":  "Chapter",
+            "section":  "Section",
+            "part":  "Part",
+            "track":  "Track",
+            "reference-entry":  "Entry",
+            "dissertation":  "Dissertation",
+            "component":  "Component",
+            "image":  "Image",
+            "model":  "Model",
+            "film":  "Film",
+            "other":  "Other"};
+
+        // From https://meta.wikimedia.org/wiki/List_of_Wikipedias#1.2B_articles
+        window.wikis = {
+            'en': 'English',
+            'sv': 'Swedish',
+            'nl': 'Dutch',
+            'de': 'German',
+            'fr': 'French',
+            'war': 'Waray-Waray',
+            'ru': 'Russian',
+            'ceb': 'Cebuano',
+            'it': 'Italian',
+            'es': 'Spanish',
+            'vi': 'Vietnamese',
+            'pl': 'Polish',
+            'ja': 'Japanese',
+            'pt': 'Portuguese',
+            'zh': 'Chinese',
+            'uk': 'Ukrainian',
+            'ca': 'Catalan',
+            'fa': 'Persian',
+            'no': 'Norwegian (Bokmål)',
+            'sh': 'Serbo-Croatian',
+            'fi': 'Finnish',
+            'ar': 'Arabic',
+            'id': 'Indonesian',
+            'cs': 'Czech',
+            'sr': 'Serbian',
+            'ro': 'Romanian',
+            'ko': 'Korean',
+            'hu': 'Hungarian',
+            'ms': 'Malay',
+            'tr': 'Turkish',
+            'min': 'Minangkabau',
+            'eo': 'Esperanto',
+            'kk': 'Kazakh',
+            'eu': 'Basque',
+            'sk': 'Slovak',
+            'da': 'Danish',
+            'bg': 'Bulgarian',
+            'he': 'Hebrew',
+            'lt': 'Lithuanian',
+            'hy': 'Armenian',
+            'hr': 'Croatian',
+            'sl': 'Slovenian',
+            'et': 'Estonian',
+            'uz': 'Uzbek',
+            'gl': 'Galician',
+            'nn': 'Norwegian (Nynorsk)',
+            'vo': 'Volapük',
+            'la': 'Latin',
+            'simple': 'Simple English',
+            'el': 'Greek',
+            'hi': 'Hindi',
+            'az': 'Azerbaijani',
+            'th': 'Thai',
+            'ka': 'Georgian',
+            'ce': 'Chechen',
+            'oc': 'Occitan',
+            'be': 'Belarusian',
+            'mk': 'Macedonian',
+            'mg': 'Malagasy',
+            'new': 'Newar / Nepal Bhasa',
+            'ur': 'Urdu',
+            'tt': 'Tatar',
+            'ta': 'Tamil',
+            'pms': 'Piedmontese',
+            'cy': 'Welsh',
+            'tl': 'Tagalog',
+            'lv': 'Latvian',
+            'bs': 'Bosnian',
+            'te': 'Telugu',
+            'be-x-old': 'Belarusian (Taraškievica)',
+            'br': 'Breton',
+            'ht': 'Haitian',
+            'sq': 'Albanian',
+            'jv': 'Javanese',
+            'lb': 'Luxembourgish',
+            'mr': 'Marathi',
+            'is': 'Icelandic',
+            'ml': 'Malayalam',
+            'zh-yue': 'Cantonese',
+            'bn': 'Bengali',
+            'af': 'Afrikaans',
+            'ba': 'Bashkir',
+            'ga': 'Irish',
+            'pnb': 'Western Panjabi',
+            'cv': 'Chuvash',
+            'fy': 'West Frisian',
+            'lmo': 'Lombard',
+            'tg': 'Tajik',
+            'sco': 'Scots',
+            'my': 'Burmese',
+            'yo': 'Yoruba',
+            'an': 'Aragonese',
+            'ky': 'Kirghiz',
+            'sw': 'Swahili',
+            'io': 'Ido',
+            'ne': 'Nepali',
+            'gu': 'Gujarati',
+            'scn': 'Sicilian',
+            'bpy': 'Bishnupriya Manipuri',
+            'nds': 'Low Saxon',
+            'ku': 'Kurdish',
+            'ast': 'Asturian',
+            'qu': 'Quechua',
+            'als': 'Alemannic',
+            'su': 'Sundanese',
+            'pa': 'Punjabi',
+            'kn': 'Kannada',
+            'ckb': 'Sorani',
+            'ia': 'Interlingua',
+            'mn': 'Mongolian',
+            'nap': 'Neapolitan',
+            'bug': 'Buginese',
+            'arz': 'Egyptian Arabic',
+            'bat-smg': 'Samogitian',
+            'wa': 'Walloon',
+            'zh-min-nan': 'Min Nan',
+            'am': 'Amharic',
+            'map-bms': 'Banyumasan',
+            'gd': 'Scottish Gaelic',
+            'yi': 'Yiddish',
+            'mzn': 'Mazandarani',
+            'si': 'Sinhalese',
+            'fo': 'Faroese',
+            'bar': 'Bavarian',
+            'vec': 'Venetian',
+            'nah': 'Nahuatl',
+            'sah': 'Sakha',
+            'os': 'Ossetian',
+            'sa': 'Sanskrit',
+            'roa-tara': 'Tarantino',
+            'li': 'Limburgish',
+            'hsb': 'Upper Sorbian',
+            'or': 'Oriya',
+            'pam': 'Kapampangan',
+            'mrj': 'Hill Mari',
+            'mhr': 'Meadow Mari',
+            'se': 'Northern Sami',
+            'mi': 'Maori',
+            'ilo': 'Ilokano',
+            'hif': 'Fiji Hindi',
+            'bcl': 'Central Bicolano',
+            'gan': 'Gan',
+            'rue': 'Rusyn',
+            'ps': 'Pashto',
+            'glk': 'Gilaki',
+            'nds-nl': 'Dutch Low Saxon',
+            'bo': 'Tibetan',
+            'vls': 'West Flemish',
+            'diq': 'Zazaki',
+            'fiu-vro': 'Võro',
+            'xmf': 'Mingrelian',
+            'tk': 'Turkmen',
+            'gv': 'Manx',
+            'sc': 'Sardinian',
+            'co': 'Corsican',
+            'csb': 'Kashubian',
+            'hak': 'Hakka',
+            'km': 'Khmer',
+            'kv': 'Komi',
+            'vep': 'Vepsian',
+            'zea': 'Zeelandic',
+            'crh': 'Crimean Tatar',
+            'zh-classical': 'Classical Chinese',
+            'frr': 'North Frisian',
+            'eml': 'Emilian-Romagnol',
+            'ay': 'Aymara',
+            'stq': 'Saterland Frisian',
+            'udm': 'Udmurt',
+            'wuu': 'Wu',
+            'nrm': 'Norman',
+            'kw': 'Cornish',
+            'rm': 'Romansh',
+            'szl': 'Silesian',
+            'so': 'Somali',
+            'koi': 'Komi-Permyak',
+            'as': 'Assamese',
+            'lad': 'Ladino',
+            'mt': 'Maltese',
+            'fur': 'Friulian',
+            'dv': 'Divehi',
+            'gn': 'Guarani',
+            'dsb': 'Lower Sorbian',
+            'pcd': 'Picard',
+            'ie': 'Interlingue',
+            'sd': 'Sindhi',
+            'lij': 'Ligurian',
+            'cbk-zam': 'Zamboanga Chavacano',
+            'cdo': 'Min Dong',
+            'ksh': 'Ripuarian',
+            'ext': 'Extremaduran',
+            'mwl': 'Mirandese',
+            'gag': 'Gagauz',
+            'ang': 'Anglo-Saxon',
+            'ace': 'Acehnese',
+            'ug': 'Uyghur',
+            'pi': 'Pali',
+            'pag': 'Pangasinan',
+            'nv': 'Navajo',
+            'frp': 'Franco-Provençal/Arpitan',
+            'lez': 'Lezgian',
+            'sn': 'Shona',
+            'kab': 'Kabyle',
+            'ln': 'Lingala',
+            'pfl': 'Palatinate German',
+            'myv': 'Erzya',
+            'xal': 'Kalmyk',
+            'krc': 'Karachay-Balkar',
+            'haw': 'Hawaiian',
+            'rw': 'Kinyarwanda',
+            'pdc': 'Pennsylvania German',
+            'kaa': 'Karakalpak',
+            'to': 'Tongan',
+            'kl': 'Greenlandic',
+            'arc': 'Aramaic',
+            'nov': 'Novial',
+            'kbd': 'Kabardian Circassian',
+            'av': 'Avar',
+            'bxr': 'Buryat (Russia)',
+            'lo': 'Lao',
+            'bjn': 'Banjar',
+            'ha': 'Hausa',
+            'tet': 'Tetum',
+            'tpi': 'Tok Pisin',
+            'na': 'Nauruan',
+            'pap': 'Papiamentu',
+            'lbe': 'Lak',
+            'jbo': 'Lojban',
+            'ty': 'Tahitian',
+            'mdf': 'Moksha',
+            'roa-rup': 'Aromanian',
+            'wo': 'Wolof',
+            'tyv': 'Tuvan',
+            'ig': 'Igbo',
+            'srn': 'Sranan',
+            'nso': 'Northern Sotho',
+            'kg': 'Kongo',
+            'ab': 'Abkhazian',
+            'ltg': 'Latgalian',
+            'zu': 'Zulu',
+            'om': 'Oromo',
+            'chy': 'Cheyenne',
+            'za': 'Zhuang',
+            'cu': 'Old Church Slavonic',
+            'rmy': 'Romani',
+            'tw': 'Twi',
+            'tn': 'Tswana',
+            'chr': 'Cherokee',
+            'pih': 'Norfolk',
+            'mai': 'Maithili',
+            'got': 'Gothic',
+            'bi': 'Bislama',
+            'xh': 'Xhosa',
+            'sm': 'Samoan',
+            'ss': 'Swati',
+            'mo': 'Moldovan',
+            'rn': 'Kirundi',
+            'ki': 'Kikuyu',
+            'pnt': 'Pontic',
+            'bm': 'Bambara',
+            'iu': 'Inuktitut',
+            'ee': 'Ewe',
+            'lg': 'Luganda',
+            'ts': 'Tsonga',
+            'fj': 'Fijian',
+            'ak': 'Akan',
+            'ik': 'Inupiak',
+            'st': 'Sesotho',
+            'sg': 'Sango',
+            'ff': 'Fula',
+            'dz': 'Dzongkha',
+            'ny': 'Chichewa',
+            'ch': 'Chamorro',
+            'ti': 'Tigrinya',
+            've': 'Venda',
+            'ks': 'Kashmiri',
+            'tum': 'Tumbuka',
+            'cr': 'Cree',
+            'ng': 'Ndonga',
+            'cho': 'Choctaw',
+            'kj': 'Kuanyama',
+            'mh': 'Marshallese',
+            'ho': 'Hiri Motu',
+            'ii': 'Sichuan Yi',
+            'aa': 'Afar',
+            'mus': 'Muscogee',
+            'hz': 'Herero',
+            'kr': 'Kanuri'};
 
         </script>
 
