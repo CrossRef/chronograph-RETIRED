@@ -1,0 +1,216 @@
+{% extends "templates/base.html" %}
+
+{% block "content" %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+    
+        <h1>{{type.description}}</h1>
+        <script src="/lib/react/react.js"></script>
+        <script src="/lib/react/JSXTransformer.js"></script>
+        <script src="/lib/moment/moment.js"></script>
+
+        <script type="text/jsx">
+        // from https://github.com/CrossRef/cayenne/blob/master/src/cayenne/item_tree.clj#L9
+        window.itemTypes = {
+            "journal":  "Journal",
+            "article":  "Article",
+            "journal-article":  "Journal Article",
+            "journal-issue":  "Journal Issue",
+            "journal-volume":  "Journal Volume",
+            "proceedings":  "Proceedings",
+            "proceedings-series":  "Proceedings Series",
+            "proceedings-article":  "Conference Paper",
+            "report":  "Report",
+            "report-series":  "Report Series",
+            "standard":  "Standard",
+            "standard-series":  "Standard Series",
+            "dataset":  "Dataset",
+            "edited-book":  "Book",
+            "monograph":  "Monograph",
+            "reference-book":  "Reference",
+            "book":  "Book",
+            "book-series":  "Book Series",
+            "book-set":  "Book Set",
+            "chapter":  "Chapter",
+            "section":  "Section",
+            "part":  "Part",
+            "track":  "Track",
+            "reference-entry":  "Entry",
+            "dissertation":  "Dissertation",
+            "component":  "Component",
+            "image":  "Image",
+            "model":  "Model",
+            "film":  "Film",
+            "other":  "Other"};
+
+        window.counter = (function() {
+                    var count = 0;
+        
+                    return function() {
+                        count ++;
+                        return count;
+                    }
+                })();
+
+        var Entry = React.createClass({
+            getInitialState: function () {
+                return {title: "..."};
+            },
+
+            componentDidMount: function() {
+                var self = this;
+                $.get("http://api.crossref.org/v1/works/" + this.props.item.doi).then(function(response) {
+                    var title = response && response.message && response.message.title[0];
+                    var typeLabel = response && response.message && response.message.type;
+                    var type = itemTypes[typeLabel] || "";
+                    var containerTitle = response && response.message && response.message['container-title'][0] || "";
+                    var authors = response && response.message && response.message.author;
+                    var formattedAuthors = authors.map(function(author) { return author.family + ", " + author.given[0]}).join(", ");
+                    self.setState({title: title, type: type, containerTitle: containerTitle, authors: formattedAuthors});
+                })
+            },
+
+            render: function() {
+                var rendered;
+                switch (this.props.item.type) {
+                    case "WikipediaCitation": 
+                    rendered = <tr>
+                        <td><div><small>Wikipedia article</small></div>
+                            <div className="itemTitle">{this.props.item.formatted.Title}</div>
+                            <div><a href={this.props.item.formatted["Page URL"]}>{this.props.item.formatted["Page URL"]}</a></div>
+                        </td>
+                        <td className="citeAction"><strong>{this.props.item.formatted.Action == 'add' ? "cited" : "uncited"}</strong> <br />
+                        {moment(this.props.item.date).calendar()}
+                        </td>
+                        <td>
+                        <div><small>{this.state.type}</small></div>
+                        <div className="itemTitle">{this.state.title}</div>
+                        <div>{this.state.containerTitle}</div>
+                        <div>{this.state.authors}</div>
+                        <div>DOI: <a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
+                        </td>
+                    </tr>; break;
+
+
+                    default:
+                    rendered = <tr>
+                        <td><div><small>{this.props.item.type}</small></div>
+                            <div className="itemTitle">{this.props.item.formatted.Title}</div>
+                        </td>
+                        <td className="citeAction">cited</td>
+                        <td>
+                        <div><small>{this.state.type}</small></div>
+                        <div className="itemTitle">{this.state.title}</div>
+                        <div>{this.state.containerTitle}</div>
+                        <div>{this.state.authors}</div>
+                        <div>DOI: <a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
+                        </td>
+                    </tr>; break;
+                }
+
+
+                return rendered;
+            }
+
+        });
+
+        var StreamTable = React.createClass({
+            getInitialState: function () {
+                return {items: []};
+            },
+
+            componentDidMount: function () {
+                var self = this;
+
+                var socketUrl =  window.location.href.replace("http://", "ws://").replace("https://", "ws://") + "/socket";
+                socket = new WebSocket(socketUrl);
+
+                socket.onmessage = function(item) {
+                    var data = JSON.parse(item.data);
+                    var items = self.state.items;
+                    var count = counter();
+
+                    // Set unique key for event (react needs this).
+                    data.key = count;
+
+                    items.unshift(data);
+
+                    // Limit to 200.
+                    items = items.slice(0, 200);
+                    self.setState({items: items});
+                };
+            },
+
+            render: function() {
+                // Group these per day.
+                var allDaysWorth = [];
+                var currentDaysWorth = [];
+                var currentLabel = null;
+                if (this.state.items) {
+                    this.state.items.forEach(function(item) {
+                        var itemDate = new Date(item.date);
+                        var label = moment(itemDate).format('LL');
+
+                        if (currentLabel) {
+                            if (label == currentLabel) {
+                                currentDaysWorth.push(item);
+                            } else {
+                                allDaysWorth.push([currentLabel, currentDaysWorth]);
+                                currentDaysWorth = [item];
+                            }
+                        }
+
+                        currentLabel = label;
+
+                    });
+
+                    allDaysWorth.push([currentLabel, currentDaysWorth]);    
+                }
+
+                
+                return <div> {allDaysWorth.map(function(daysWorth) {
+                    var dayLabel = daysWorth[0];
+                    var items = daysWorth[1];
+
+                    return  <div key={dayLabel}>
+
+                        <h1>{dayLabel}</h1>
+                        <table className="table table-striped event-table">
+                         <thead>
+                           <tr>
+                             <th>from</th>
+                             <th></th>
+                             <th>to</th>
+                           </tr>
+                          </thead>
+                          <tbody>
+                            {items.map(function(item) {
+                                return <Entry item={item} key={item.key} />
+                            })}
+                          </tbody>
+                        </table></div>})} </div>
+            }});
+
+        React.render(
+            <StreamTable />,
+            document.getElementById('content')
+          );
+
+        </script>
+
+
+        <div class='container' id='content'>
+        </div>
+
+    
+    </div>
+</div>  
+
+<script>
+
+</script>
+
+{% endblock %}
+
+

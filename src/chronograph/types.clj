@@ -22,7 +22,7 @@
         ; go from event.arg1 and event.type.arg1 to name => value
         substitute-arg-names (into {} (map (fn [arg-name]
                                              (when-let [value (get event arg-name)]
-                                               [(-> event :type arg-name) value])) arg123))]
+                                               [arg-name value])) arg123))]
     substitute-arg-names))
 
 (defn wikipedia [event]

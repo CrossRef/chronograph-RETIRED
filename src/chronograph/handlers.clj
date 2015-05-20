@@ -18,7 +18,9 @@
   (:require [crossref.util.doi :as crdoi]
             [crossref.util.config :refer [config]])
   (:require [clj-time.format :as f])
-  (:require [clojure.walk :refer [prewalk]]))
+  (:require [clojure.walk :refer [prewalk]])
+  (:require [clojure.core.async :as async :refer [<! <!! >!! >! go chan]])
+  (:require [org.httpkit.server :refer [with-channel on-close on-receive send! run-server]]))
 
 (add-filter! :name name)
 (add-filter! :is-url #(or (.startsWith % "http://") (.startsWith % "https://")))
@@ -54,6 +56,25 @@
         "redepositedDate" (str (:redepositedDate info))
         "firstDepositedDate" (str (:firstDepositedDate info))
         "resolved" (str (:resolved info))}))
+
+
+; A collection of async channels via which push events will be rebroadcast.
+(def listeners (atom {}))
+(defn register-listener [listener-chan event-type]
+  (swap! listeners assoc listener-chan event-type))
+
+(defn unregister-listener [listener-chan]
+  (swap! listeners dissoc listener-chan))
+
+(def recent-broadcast-events-size 200)
+(def recent-broadcast-events (atom (clojure.lang.PersistentQueue/EMPTY)))
+
+(defn enqueue-broadcast [item]
+  (swap! recent-broadcast-events (fn [old-queue]
+                                   (let [new-queue (conj old-queue item)]
+                                     (if (> (.size new-queue) recent-broadcast-events-size)
+                                       (pop new-queue)
+                                       new-queue)))))
 
 (defresource dois
   []
@@ -110,22 +131,23 @@
                     ; DOI not required, it may be a heartbeat.
                     (if (or (empty? token) (nil? type-name) (nil? source-name) (not storage-type-allowed))
                       true
-                      [false {::doi doi
-                              ::token token
-                              ::type-name type-name
-                              ::source-name source-name
-                              ::storage-type storage-type
-                              ::arg1 arg1
-                              ::arg2 arg2
-                              ::arg3 arg3}]))
+                      [false {::token token
+                              ::event {:doi doi
+                                       :type-name type-name
+                                       :source-name source-name
+                                       :storage-type storage-type
+                                       :arg1 arg1
+                                       :arg2 arg2
+                                       :arg3 arg3}}]))
                   ; JSON deserialization errors.
                   (catch java.io.EOFException _ true)
                   (catch java.lang.Exception _ true))))
   
   :authorized? (fn [ctx]
-                (let [token (::token ctx)
-                      type-name (::type-name ctx)
-                      source-name (::source-name ctx)
+                (let [event (::event ctx)
+                      token (::token ctx)
+                      type-name (:type-name event)
+                      source-name (:source-name event)
                       got-token (get tokens token)
                       type-allowed (get-in got-token [:allowed-types type-name])
                       source-allowed (get-in got-token [:allowed-sources source-name])]
@@ -137,27 +159,49 @@
   :multiple-resolutions? false
 
   :handle-ok (fn [ctx]
-               (let [doi (::doi ctx)
-                     type-name (::type-name ctx)
-                     source-name (::source-name ctx)
-                     arg1 (::arg1 ctx)
-                     arg2 (::arg2 ctx)
-                     arg3 (::arg3 ctx)
+               (let [event (::event ctx)
+                     doi (:doi event)
+                     type-name (:type-name event)
+                     source-name (:source-name event)
+                     arg1 (:arg1 event)
+                     arg2 (:arg2 event)
+                     arg3 (:arg3 event)
                      ; If there's no DOI, record this as a heartbeat.
-                     is-heartbeat (or (nil? doi) (empty? doi))]
+                     is-heartbeat (or (nil? doi) (empty? doi))
+                     type-format-function (:format (types/types-by-name type-name) identity)
+                     ]
+                 
                  ; Can't insert :timeline with API
-                
                 (when-not is-heartbeat
-                  (let [doi (crdoi/non-url-doi doi)]                 
-                     (condp = (::storage-type ctx)
-                       :event (d/insert-event-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
-                       :milestone (d/insert-milestone-async doi type-name source-name (t/now) 1 arg1 arg2 arg3)
-                       :fact (d/insert-fact-async doi type-name source-name (t/now) 1 arg1 arg2 arg3))))
+                  (let [doi (crdoi/non-url-doi doi)
+                        now (t/now)
+                        
+                        broadcast-event (json/write-str {:storage-type (::storage-type ctx)
+                                                        :type type-name
+                                                        :doi doi
+                                                        :source-name source-name
+                                                        :date (f/unparse iso-format now)
+                                                        :arg1 arg1
+                                                        :arg2 arg2
+                                                        :arg3 arg3
+                                                        :formatted (type-format-function event)})]
+                     ; Insert into DB.
+                     (condp = (:storage-type event)
+                       :event (d/insert-event-async doi type-name source-name now 1 arg1 arg2 arg3)
+                       :milestone (d/insert-milestone-async doi type-name source-name now 1 arg1 arg2 arg3)
+                       :fact (d/insert-fact-async doi type-name source-name now 1 arg1 arg2 arg3))
+                     
+                     ; Broadcast to listeners who are interested in this type.
+                     (doseq [[channel channel-type-name] @listeners]
+                       (when (= type-name channel-type-name)
+                        (send! channel broadcast-event)))
+                     
+                     ; Also stick on the queue so new joiners can see recent history.
+                     (enqueue-broadcast [type-name broadcast-event])))
                 
                 (if is-heartbeat
                  (d/inc-heartbeat-bucket type-name)
                  (d/inc-push-bucket type-name))
-                
                "OK")))
 
 (defresource doi-facts
@@ -289,8 +333,6 @@
                                      :last-date last-date
                                      :response response-timeline-dates-converted}]
                  
-                 
-                                                    
                   (condp = (get-in ctx [:representation :media-type])
                     
                     "text/html" (render-file "templates/doi.html" render-context)
@@ -500,7 +542,8 @@
                               :timeline nil
                               :event (d/get-recent-events (:name type) offset limit)
                               :milestone (d/get-recent-milestones (:name type) offset limit)
-                              :fact nil)
+                              :fact nil
+                              nil)
                       
                       prev-offset (when (> offset 0) (max 0 (- offset page-size)))
                       next-offset (when (> (count events) 0) (+ offset page-size))]
@@ -523,6 +566,49 @@
                                                        :next-offset (::next-offset ctx)
                                                        :prev-offset (::prev-offset ctx)}))))
 
+; Just serve up a blank page with JavaScript to pick up from event-types-socket.
+(defresource event-types-live
+  [type-name]
+  :available-media-types ["text/html"]
+  :exists? (fn [ctx]
+                (let [type-name (keyword type-name)
+                      type (get types/types-by-name type-name)
+                      storage (:storage type)]
+                  
+                  [true {::type type
+                         ::storage storage}]))
+  
+  :handle-ok (fn [ctx]
+               (let [type (::type ctx)
+                     storage (::storage ctx)
+                     events (::events ctx)
+                     num-events (::num-events ctx)
+                     with-info (map types/export-type-info events)]
+                 (render-file "templates/events-live.html" {:site-title site-title
+                                                       :type type
+                                                       :next-offset (::next-offset ctx)
+                                                       :prev-offset (::prev-offset ctx)}))))
+
+(defn event-types-socket
+  [request]
+  (let [type-name (-> request :params :type-name)
+        typ (keyword type-name)
+        ]
+   (with-channel request output-channel
+                 
+    ; For starters, catch up with recent history.
+    (doseq [[event-type event] @recent-broadcast-events]
+      (when (= event-type typ)
+        (send! output-channel event)))
+    
+    (register-listener output-channel typ)
+    
+    (on-close output-channel
+              (fn [status]
+                (unregister-listener output-channel)))
+    (on-receive output-channel
+              (fn [data])))))
+
 (defresource status
   []
   :available-media-types ["text/html"]
@@ -540,6 +626,7 @@
                                                      :types types-with-count}))))
 
 
+
 (defroutes app-routes
   
   (GET "/" [] (home))
@@ -547,7 +634,9 @@
   (GET "/member-domains" [] (member-domains))
   (GET "/top-domains-members" [] (top-domains-members))
   (GET "/top-domains" [] (top-domains))
-  (GET ["/events/types/:type-name" :type-name #".*"] [type-name] (event-types type-name))
+  (GET ["/events/types/:type-name" :type-name #"[^/]*"] [type-name] (event-types type-name))
+  (GET ["/events/types/:type-name/live" :type-name #"[^/]*"] [type-name] (event-types-live type-name))
+  (GET ["/events/types/:type-name/live/socket" :type-name #"[^/]*"] [type-name] event-types-socket)
   
   
   (context "/dois" []

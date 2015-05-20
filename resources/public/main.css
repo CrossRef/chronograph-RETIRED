@@ -6,6 +6,14 @@ a {
   text-decoration:  underline;
 }
 
+.itemTitle {
+   font-size: 2em;
+}
+
+.citeAction {
+  vertical-align: middle !important;
+  text-align: center;
+}
 
 .navbar-brand {
   text-decoration: none;

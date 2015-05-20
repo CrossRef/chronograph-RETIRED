@@ -1,4 +1,5 @@
 import requests
+import time
 
 PUSH_API_URL="http://localhost:3020/api/push"
 PUSH_TYPE="WikipediaCitation"
@@ -11,15 +12,17 @@ article_url="http://en.wikipedia.org/wiki/Fish"
 timestamp=123456789
 doi="10.5555/12345678"
 
-resp = requests.post(PUSH_API_URL, json={"doi": doi,
-                                  "source": PUSH_SOURCE,
-                                  "type": PUSH_TYPE,
-                                  "arg1":action,
-                                  "arg2":article_url,
-                                  "arg3":timestamp}, headers= {"Token": PUSH_TOKEN})
-print resp
+counter = 0
+while True:
+  the_doi = doi# + str(counter)
+  counter += 1
+  resp = requests.post(PUSH_API_URL, json={   "doi": the_doi,
+                                            "source": PUSH_SOURCE,
+                                            "type": PUSH_TYPE,
+                                            "arg1":action,
+                                            "arg2":article_url + str(counter),
+                                            "arg3":timestamp}, headers= {"Token": PUSH_TOKEN})
+  print resp
 
-# print "Heartbeat..."
-# resp = requests.post(PUSH_API_URL, json={"source": PUSH_SOURCE,
-# print resp
+  time.sleep(10)
 
