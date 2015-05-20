@@ -123,7 +123,8 @@
             componentDidMount: function () {
                 var self = this;
 
-                var socketUrl =  "ws://" + window.location.hostname + "/socket" + window.location.pathname;
+                var port = ":" + (window.location.port || "80");
+                var socketUrl =  "ws://" + window.location.hostname + port + "/socket" + window.location.pathname;
                 socket = new WebSocket(socketUrl);
 
                 socket.onmessage = function(item) {
