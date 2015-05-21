@@ -3,11 +3,11 @@ strong {
 }
 
 a {
-  text-decoration:  underline;
+  /*text-decoration:  underline;*/
 }
 
 .itemTitle {
-   font-size: 2em;
+   font-size: 1.5em;
 }
 
 .citeAction {
