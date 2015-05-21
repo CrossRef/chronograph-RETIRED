@@ -67,11 +67,20 @@
 
         var StreamTable = React.createClass({
             getInitialState: function () {
-                return {items: []};
+                return {items: [], connectionAttempts: 0};
             },
 
             componentDidMount: function () {
+                this.attemptConnect();
+            },
+
+            attemptConnect: function () {
                 var self = this;
+
+                this.setState({
+                    connectionAttempts: this.state.connectionAttempts + 1,
+                    error: false
+                });
 
                 var port = ":" + (window.location.port || "80");
                 var socketUrl =  "ws://" + window.location.hostname + port + "/socket" + window.location.pathname;
@@ -97,6 +106,7 @@
 
                 socket.onerror = function() {
                     self.setState({error: true});
+                    setTimeout(function(){self.attemptConnect()}, 2000);
                 }
             },
 
@@ -149,7 +159,7 @@
 
             render: function() {
                 if (this.state.error) {
-                    return <p className="error">Sorry there was an error connecting to the server. Please refresh the page or email labs@crossref.org if you are having continued problems.</p>
+                    return <p className="error">Sorry there was an error connecting to the server. Please refresh the page or email labs@crossref.org if you are having continued problems. Number of attempts to connect: {this.state.connectionAttempts}.</p>
                 }
 
                 // Group these per day.
