@@ -6,6 +6,7 @@
         <div class="col-md-12">
     
         <h1>{{type.description}}</h1>
+        <link href='/lib/font-awesome/css/font-awesome.min.css' media='screen' rel='stylesheet' type='text/css' />
         <script src="/lib/react/react.js"></script>
         <script src="/lib/react/JSXTransformer.js"></script>
         <script src="/lib/moment/moment.js"></script>
@@ -29,9 +30,9 @@
                 switch (this.props.item.type) {
                     case "WikipediaCitation": 
                     rendered = <tr>
-                        <td><div><small>Wikipedia Article</small></div>
-                            <div className="itemTitle"><a href={this.props.item.formatted["Page URL"]}>{this.props.item.formatted.Title}</a></div>
-                            <div>{wikiName} Wikipedia</div>
+                        <td><div><small>{wikiName} Wikipedia Article</small></div>
+                            <div className="itemTitle"><i className='fa-external-link'></i><a href={this.props.item.formatted["Page URL"]}>{this.props.item.formatted.Title}</a></div>
+                            <a href={this.props.item.formatted["Page URL"]}><i className="fa fa-external-link"></i> {this.props.item.formatted["Page URL"]}</a>
                         </td>
                         <td className="citeAction"><strong>{this.props.item.formatted.Action == 'add' ? "cited" : "uncited"}</strong> <br />
                         {moment(this.props.item.date).calendar()}
@@ -40,8 +41,8 @@
                         <div><small>{this.props.item.fromApi && this.props.item.fromApi.type}</small></div>
                         <div className="itemTitle"><a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.fromApi && this.props.item.fromApi.title}</a></div>
                         <div>{this.props.item.fromApi && this.props.item.fromApi.containerTitle}</div>
-                        <div>{this.props.item.fromApi &&  this.props.item.fromApi.authors}</div>
-                        <div><a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.doi}</a></div>
+                        <div>Authors: {this.props.item.fromApi &&  this.props.item.fromApi.authors}</div>
+                        <div><a href={"http://doi.org/" + this.props.item.doi}><i className="fa fa-external-link"></i> {this.props.item.doi}</a></div>
                         </td>
                     </tr>; break;
 
