@@ -32,7 +32,7 @@
                     rendered = <tr>
                         <td><div><small>{wikiName} Wikipedia Article</small></div>
                             <div className="itemTitle"><i className='fa-external-link'></i><a href={this.props.item.formatted["Page URL"]}>{this.props.item.formatted.Title}</a></div>
-                            <a href={this.props.item.formatted["Page URL"]}><i className="fa fa-external-link"></i> {this.props.item.formatted["Page URL"]}</a>
+                            <a href={this.props.item.formatted["Page URL"]}><i className="fa fa-external-link"></i>&nbsp;{this.props.item.formatted["Page URL"]}</a>
                         </td>
                         <td className="citeAction"><strong>{this.props.item.formatted.Action == 'add' ? "cited" : "uncited"}</strong> <br />
                         {moment(this.props.item.date).calendar()}
@@ -42,7 +42,7 @@
                         <div className="itemTitle"><a href={"http://doi.org/" + this.props.item.doi}>{this.props.item.fromApi && this.props.item.fromApi.title}</a></div>
                         <div>{this.props.item.fromApi && this.props.item.fromApi.containerTitle}</div>
                         <div>Authors: {this.props.item.fromApi &&  this.props.item.fromApi.authors}</div>
-                        <div><a href={"http://doi.org/" + this.props.item.doi}><i className="fa fa-external-link"></i> {this.props.item.doi}</a></div>
+                        <div><a href={"http://doi.org/" + this.props.item.doi}><i className="fa fa-external-link"></i>&nbsp;{this.props.item.doi}</a></div>
                         </td>
                     </tr>; break;
 
