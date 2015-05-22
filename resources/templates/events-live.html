@@ -109,12 +109,12 @@
             },
 
             // Start viewing live stream.
-            navigateLive() {
+            navigateLive: function() {
                 this.setState({liveState: 'live'});
                 this.fetchPage(null);
             },
 
-            navigatePage(pageId) {
+            navigatePage: function(pageId) {
                 // liveSincePage is set every time a live event comes in.
                 this.setState({liveState: 'page', liveSincePage: false});
                 this.fetchPage(pageId);
