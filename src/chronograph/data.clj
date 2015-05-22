@@ -343,7 +343,7 @@
     (doseq [[date top-domains] chunk]
       (k/delete d/top-domains (k/where {:month (coerce/to-sql-date date)}))
       (k/insert d/top-domains (k/values {:month (coerce/to-sql-date date) :domains top-domains})))))
-
+ 
 (defn insert-events-chunk-type-source
   "Insert chunk of events of [doi date cnt arg1 arg2 arg3] "
   [chunk type-name source-name]
@@ -773,6 +773,23 @@ events))
 ; recent-facts and recent-timelines aren't meaningful.
 (def get-recent-milestones get-recent-events)
   
+(defn get-recent-events-offset-by-id
+  "Get recent events ordered by event date"
+  [type-name offset-id limit]
+  
+  (let [shard-table-name (get-shard-table-name-from-type-name type-name)
+        q (-> (k/select* shard-table-name)
+                     (k/order :event :desc)
+                     (k/limit limit))
+        q (if offset-id (k/where q (< :id offset-id)) q)
+        events (k/select q)
+        decorated (decorate-events events)]
+    decorated))
+
+; Same implementation but good to keep separate.
+; recent-facts and recent-timelines aren't meaningful.
+(def get-recent-milestones-offset-by-id get-recent-events-offset-by-id)
+
 (defn table-count
   "Return size of given table name"
   [table-name]

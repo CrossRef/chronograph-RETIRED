@@ -15,6 +15,10 @@ a {
   text-align: center;
 }
 
+.btn {
+  margin: 5px;
+}
+
 .navbar-brand {
   text-decoration: none;
   color: red;

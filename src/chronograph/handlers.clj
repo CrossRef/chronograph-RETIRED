@@ -31,13 +31,19 @@
 
 (def iso-format (f/formatters :date-time))
 
+(defn coerce-date [date]
+  (condp = (type date)
+    java.sql.Date (coerce/from-sql-date date)
+    java.sql.Timestamp (coerce/from-sql-date date)
+    date))
+
 (defn convert-all-dates
   "Convert all dates in structure"
   [input fmt]
-    (prewalk #(if (= (type %) org.joda.time.DateTime)
+    (prewalk #(if (#{org.joda.time.DateTime java.sql.Timestamp} (type %))
               (condp = fmt
-                :iso8601 (f/unparse iso-format %)
-                :seconds (/ (coerce/to-long %) 1000)
+                :iso8601 (f/unparse iso-format (coerce-date %))
+                :seconds (/ (coerce/to-long (coerce-date %)) 1000)
                 ; Otherwise return it unchanged
                 %)%)
            input))
@@ -65,16 +71,6 @@
 
 (defn unregister-listener [listener-chan]
   (swap! listeners dissoc listener-chan))
-
-(def recent-broadcast-events-size 200)
-(def recent-broadcast-events (atom (clojure.lang.PersistentQueue/EMPTY)))
-
-(defn enqueue-broadcast [item]
-  (swap! recent-broadcast-events (fn [old-queue]
-                                   (let [new-queue (conj old-queue item)]
-                                     (if (> (.size new-queue) recent-broadcast-events-size)
-                                       (pop new-queue)
-                                       new-queue)))))
 
 (defresource dois
   []
@@ -170,6 +166,7 @@
                      is-heartbeat (or (nil? doi) (empty? doi))
                      type-format-function (:format (types/types-by-name type-name) identity)
                      ]
+
                  
                  ; Can't insert :timeline with API
                 (when-not is-heartbeat
@@ -194,10 +191,7 @@
                      ; Broadcast to listeners who are interested in this type.
                      (doseq [[channel channel-type-name] @listeners]
                        (when (= type-name channel-type-name)
-                        (send! channel broadcast-event)))
-                     
-                     ; Also stick on the queue so new joiners can see recent history.
-                     (enqueue-broadcast [type-name broadcast-event])))
+                        (send! channel broadcast-event)))))
                 
                 (if is-heartbeat
                  (d/inc-heartbeat-bucket type-name)
@@ -554,7 +548,7 @@
                                       ::prev-offset prev-offset
                                       ::next-offset next-offset}]))
   
-  :handle-ok (fn [ctx]
+  :handle-ok (fn [ctx]   
                (let [type (::type ctx)
                      storage (::storage ctx)
                      events (::events ctx)
@@ -565,6 +559,48 @@
                                                        :type type
                                                        :next-offset (::next-offset ctx)
                                                        :prev-offset (::prev-offset ctx)}))))
+
+
+(defresource event-types-page
+  [type-name]
+  :available-media-types ["application/json"]
+  :exists? (fn [ctx]
+                (let [page-size 20
+                      offset-id (try (Integer/parseInt (-> ctx :request :params :offset-id)) (catch java.lang.NumberFormatException _ nil))
+                      type-name (keyword type-name)
+                      type (get types/types-by-name type-name)
+                      storage (:storage type)
+                      ; Not meaningful to show for timelines (which don't really have a concrete 'time') or facts which manifestly don't.
+                      events (condp = storage
+                              :timeline nil
+                              :event (d/get-recent-events-offset-by-id (:name type) offset-id page-size)
+                              :milestone (d/get-recent-milestones-offset-by-id (:name type) offset-id page-size)
+                              :fact nil
+                              nil)]
+                  
+                  [(and type events) {::type type
+                                      ::events events
+                                      ::storage storage}]))
+  
+  :handle-ok (fn [ctx]   
+               (let [type (::type ctx)
+                     storage (::storage ctx)
+                     events (::events ctx)
+                     type-format-function (:format type identity)
+                     
+                     events (map (fn [event] {:storage-type storage
+                                              :type (:name type)
+                                              :doi (:doi event)
+                                              :id (:id event)
+                                              :source-name (:source-name event)
+                                              :date (:event event)
+                                              :arg1 (:arg1 event)
+                                              :arg2 (:arg2 event)
+                                              :arg3 (:arg3 event)
+                                              :formatted (type-format-function event)}) events)]
+                 
+                 (json/write-str (convert-all-dates {:events events} :iso8601)))))
+
 
 ; Just serve up a blank page with JavaScript to pick up from event-types-socket.
 (defresource event-types-live
@@ -595,12 +631,6 @@
         typ (keyword type-name)
         ]
    (with-channel request output-channel
-                 
-    ; For starters, catch up with recent history.
-    (doseq [[event-type event] @recent-broadcast-events]
-      (when (= event-type typ)
-        (send! output-channel event)))
-    
     (register-listener output-channel typ)
     
     (on-close output-channel
@@ -636,8 +666,10 @@
   (GET "/top-domains" [] (top-domains))
   (GET ["/events/types/:type-name" :type-name #"[^/]*"] [type-name] (event-types type-name))
   (GET ["/events/types/:type-name/live" :type-name #"[^/]*"] [type-name] (event-types-live type-name))
+  (GET ["/events/types/:type-name/live/page" :type-name #"[^/]*"] [type-name] (event-types-page type-name))
   ; Prefixed for easy apache reverse proxy protocol dispatch.
   (GET ["/socket/events/types/:type-name/live" :type-name #"[^/]*"] [type-name] event-types-socket)
+  
   
   
   (context "/dois" []

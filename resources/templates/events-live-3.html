@@ -68,9 +68,7 @@
 
         var StreamTable = React.createClass({
             getInitialState: function () {
-                return {items: [],
-                    connectionAttempts: 0,
-                    liveState: 'live'};
+                return {items: [], connectionAttempts: 0};
             },
 
             componentDidMount: function () {
@@ -79,9 +77,7 @@
                 this.fetchPage(null);
             },
 
-            // fetch numbered page or the first page
             fetchPage: function(pageId) {
-
                 q = "";
                 if (pageId) {
                     q = "?offset-id=" + pageId;
@@ -103,21 +99,9 @@
                         self.checkDoi(items[i].doi, items[i].key);
                     }
 
-                    window.scrollTo(0,0);
+
                 });
 
-            },
-
-            // Start viewing live stream.
-            navigateLive() {
-                this.setState({liveState: 'live'});
-                this.fetchPage(null);
-            },
-
-            navigatePage(pageId) {
-                // liveSincePage is set every time a live event comes in.
-                this.setState({liveState: 'page', liveSincePage: false});
-                this.fetchPage(pageId);
             },
 
             attemptConnect: function () {
@@ -125,9 +109,7 @@
 
                 this.setState({
                     connectionAttempts: this.state.connectionAttempts + 1,
-                    error: false,
-                    // Can be 'live' or 'page'.
-                    liveState: 'live'
+                    error: false
                 });
 
                 var port = ":" + (window.location.port || "80");
@@ -136,12 +118,6 @@
                 socket = new WebSocket(socketUrl);
 
                 socket.onmessage = function(item) {
-                    // If we're viewing a page, don't add new events to list.
-                    if (self.state.liveState === 'page') {
-                        self.setState({eventsSincePage: true});
-                        return
-                    }
-
                     var count = counter();
 
                     var data = JSON.parse(item.data);
@@ -152,8 +128,8 @@
                     items.unshift(data);
 
                     // Limit to 50.
-                    items = items.slice(0, 20);
-
+                    console.log("Adding item to current length", items.length);
+                    items = items.slice(0, 50);
                     self.setState({items: items});
    
                     self.checkDoi(data.doi, data.key);
@@ -217,9 +193,6 @@
                     return <p className="error">Sorry there was an error connecting to the server. Please refresh the page or email labs@crossref.org if you are having continued problems. Number of attempts to connect: {this.state.connectionAttempts}.</p>
                 }
 
-                var lastItem = this.state.items[this.state.items.length -1];
-                var lastId = lastItem && lastItem.id;
-
                 // Group these per day.
                 var allDaysWorth = [];
                 var currentDaysWorth = [];
@@ -247,12 +220,7 @@
                 }
 
                 
-                return <div>
-                {(this.state.liveState === 'page' && this.state.eventsSincePage) ?
-                    <p className="alert alert-info">There are new new events. <button className='btn' onClick={this.navigateLive}>View to live stream</button></p> : <span></span>}
-
-
-                    {allDaysWorth.map(function(daysWorth) {
+                return <div> {allDaysWorth.map(function(daysWorth) {
                     var dayLabel = daysWorth[0];
                     var items = daysWorth[1];
 
@@ -272,12 +240,7 @@
                                 return <Entry item={item} key={item.key} />
                             })}
                           </tbody>
-                        </table></div>})}
-
-                    {this.state.liveState === 'page' ? <button className='btn' onClick={this.navigateLive}>Back to live stream</button> : <span></span> }
-                    <button onClick={this.navigatePage.bind(null, lastId)} className='btn btn-primary'>More</button>
-
-                </div>
+                        </table></div>})} </div>
             }});
 
         React.render(
